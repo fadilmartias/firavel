@@ -7,6 +7,10 @@ import (
 	"gorm.io/gorm"
 )
 
+func init() {
+	RegisterMigration("create_users_table", Up_20250607000000_create_users_table, Down_20250607000000_create_users_table)
+}
+
 // Up_20250607000000_create_users_table menjalankan migrasi untuk membuat tabel users
 func Up_20250607000000_create_users_table(db *gorm.DB) {
 	log.Println("Running migration: create_users_table (UP)")

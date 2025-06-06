@@ -1,12 +1,12 @@
 package commands
 
 import (
-	"github.com/spf13/cobra"
-	"goravel/app/models"
+	"fmt"
 	"goravel/bootstrap"
 	"goravel/database/migrations"
 	"goravel/database/seeders"
-	"log"
+
+	"github.com/spf13/cobra"
 )
 
 // Grup perintah DB
@@ -19,19 +19,18 @@ var dbMigrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "Run database migrations",
 	Run: func(cmd *cobra.Command, args []string) {
-		// Dapatkan koneksi DB
 		db := bootstrap.ConnectDB()
 
 		seed, _ := cmd.Flags().GetBool("seed")
+
+		for _, migration := range migrations.GetMigrations() {
+			fmt.Printf("Running migration: %s\n", migration.Name)
+			migration.Up(db)
+		}
+
 		if seed {
 			seeders.RunAllSeeders()
 		}
-
-		// Panggil migrasi spesifik di sini
-		// Dalam sistem nyata, Anda akan memiliki loop atau registri
-		// untuk menjalankan semua migrasi yang belum dijalankan.
-		migrations.Up_20250607000000_create_users_table(db)
-		// migrations.Up_20250608000000_create_products_table(db) // Contoh migrasi lain
 	},
 }
 
@@ -41,8 +40,10 @@ var dbRollbackCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		db := bootstrap.ConnectDB()
 
-		// Panggil fungsi Down dari migrasi yang ingin di-rollback
-		migrations.Down_20250607000000_create_users_table(db)
+		for _, migration := range migrations.GetMigrations() {
+			fmt.Printf("Rolling back migration: %s\n", migration.Name)
+			migration.Down(db)
+		}
 	},
 }
 
@@ -54,14 +55,15 @@ var dbMigrateFreshCmd = &cobra.Command{
 
 		seed, _ := cmd.Flags().GetBool("seed")
 
-		// Jatuhkan semua tabel
-		err := db.Migrator().DropTable(&models.User{})
-		if err != nil {
-			log.Fatalf("Could not drop table: %v", err)
+		for _, migration := range migrations.GetMigrations() {
+			fmt.Printf("Dropping table: %s\n", migration.Name)
+			migration.Down(db)
 		}
 
-		// Jalankan semua migrasi lagi
-		migrations.Up_20250607000000_create_users_table(db)
+		for _, migration := range migrations.GetMigrations() {
+			fmt.Printf("Running migration: %s\n", migration.Name)
+			migration.Up(db)
+		}
 
 		if seed {
 			seeders.RunAllSeeders()

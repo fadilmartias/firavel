@@ -1,15 +1,19 @@
 package models
 
 import (
+	"time"
+
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type User struct {
-	gorm.Model
-	Name     string `gorm:"not null" faker:"name"`
-	Email    string `gorm:"unique;not null" faker:"email"`
-	Password string `gorm:"not null"`
+	Id        string    `gorm:"primarykey;not null"`
+	Name      string    `gorm:"not null" faker:"name"`
+	Email     string    `gorm:"unique;not null" faker:"email"`
+	Password  string    `gorm:"not null"`
+	CreatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP"`
+	UpdatedAt time.Time `gorm:"type:timestamp;default:NULL ON UPDATE CURRENT_TIMESTAMP"`
+	DeletedAt time.Time `gorm:"type:timestamp;default:NULL"`
 }
 
 // HashPassword mengenkripsi password sebelum disimpan
