@@ -1,18 +1,21 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
-	"goravel/app/models"
-	"goravel/config"
-	"goravel/routes"
-	"log"
-
+	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
+	"goravel/app/models"
+	"goravel/cmd/cronjob"
+	"goravel/config"
+	"goravel/routes"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"log"
 )
 
 func NewApp() *fiber.App {
@@ -24,7 +27,11 @@ func NewApp() *fiber.App {
 	app := fiber.New()
 	app.Use(cors.New())
 	app.Use(logger.New())
-
+	app.Use(compress.New(compress.Config{
+		Level: compress.LevelBestSpeed, // 1
+	}))
+	app.Static("/", "./public") // Static file
+	cronjob.StartCronJob()
 	// Buat koneksi DB di sini
 	db := ConnectDB()
 
@@ -48,12 +55,24 @@ func ConnectDB() *gorm.DB {
 		dbConfig.Name,
 	)
 
-	// GANTI postgres.Open MENJADI mysql.Open
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	return db
+}
+
+func ConnectRedis() *redis.Client {
+	redisConfig := config.LoadRedisConfig()
+	client := redis.NewClient(&redis.Options{
+		Addr:     redisConfig.Addr,
+		Password: redisConfig.Password,
+		DB:       redisConfig.DB,
+	})
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("Could not connect to Redis: %v", err)
+	}
+	return client
 }
 
 // MigrateDB menjalankan GORM AutoMigrate

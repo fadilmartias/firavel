@@ -23,3 +23,13 @@ go.work
 # Air hot-reloader artifacts
 /tmp
 air.log
+
+/public/uploads/tmp/images/*
+/public/uploads/tmp/docs/*
+/public/uploads/images/*
+/public/uploads/docs/*
+
+!/public/uploads/tmp/images/.gitkeep
+!/public/uploads/tmp/docs/.gitkeep
+!/public/uploads/images/.gitkeep
+!/public/uploads/docs/.gitkeep

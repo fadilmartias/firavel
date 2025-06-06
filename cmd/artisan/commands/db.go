@@ -1,11 +1,12 @@
 package commands
 
 import (
+	"github.com/spf13/cobra"
+	"goravel/app/models"
 	"goravel/bootstrap"
 	"goravel/database/migrations"
 	"goravel/database/seeders"
-
-	"github.com/spf13/cobra"
+	"log"
 )
 
 // Grup perintah DB
@@ -21,6 +22,11 @@ var dbMigrateCmd = &cobra.Command{
 		// Dapatkan koneksi DB
 		db := bootstrap.ConnectDB()
 
+		seed, _ := cmd.Flags().GetBool("seed")
+		if seed {
+			seeders.RunAllSeeders()
+		}
+
 		// Panggil migrasi spesifik di sini
 		// Dalam sistem nyata, Anda akan memiliki loop atau registri
 		// untuk menjalankan semua migrasi yang belum dijalankan.
@@ -29,7 +35,6 @@ var dbMigrateCmd = &cobra.Command{
 	},
 }
 
-// Perintah untuk rollback
 var dbRollbackCmd = &cobra.Command{
 	Use:   "migrate:rollback",
 	Short: "Rollback the last database migration",
@@ -39,6 +44,33 @@ var dbRollbackCmd = &cobra.Command{
 		// Panggil fungsi Down dari migrasi yang ingin di-rollback
 		migrations.Down_20250607000000_create_users_table(db)
 	},
+}
+
+var dbMigrateFreshCmd = &cobra.Command{
+	Use:   "migrate:fresh",
+	Short: "Drop all tables and re-run all migrations",
+	Run: func(cmd *cobra.Command, args []string) {
+		db := bootstrap.ConnectDB()
+
+		seed, _ := cmd.Flags().GetBool("seed")
+
+		// Jatuhkan semua tabel
+		err := db.Migrator().DropTable(&models.User{})
+		if err != nil {
+			log.Fatalf("Could not drop table: %v", err)
+		}
+
+		// Jalankan semua migrasi lagi
+		migrations.Up_20250607000000_create_users_table(db)
+
+		if seed {
+			seeders.RunAllSeeders()
+		}
+	},
+}
+
+func init() {
+	dbMigrateFreshCmd.Flags().BoolP("seed", "s", false, "Seed the database after migration")
 }
 
 var dbSeedCmd = &cobra.Command{
@@ -51,6 +83,9 @@ var dbSeedCmd = &cobra.Command{
 
 func init() {
 	dbCmd.AddCommand(dbMigrateCmd)
-	dbCmd.AddCommand(dbRollbackCmd) // Tambahkan perintah rollback
+	dbCmd.AddCommand(dbRollbackCmd)
+	dbCmd.AddCommand(dbMigrateFreshCmd) // Tambahkan perintah migrate:fresh
 	dbCmd.AddCommand(dbSeedCmd)
+
+	dbMigrateCmd.Flags().BoolP("seed", "s", false, "Seed the database after migration")
 }
