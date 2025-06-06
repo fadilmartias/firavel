@@ -1,0 +1,54 @@
+# .air.toml
+
+# Direktori root proyek. "." berarti direktori saat ini.
+root = "."
+# Direktori sementara untuk menyimpan hasil build.
+tmp_dir = "tmp"
+
+[build]
+# Perintah untuk menjalankan aplikasi Anda.
+# Kita akan menggunakan "artisan serve" yang sudah kita buat.
+# Ini lebih konsisten dengan ekosistem Laravel.
+cmd = "go run ./cmd/artisan/main.go serve"
+
+# Binary yang akan dijalankan. Air akan menjalankan perintah di `cmd`.
+# Jadi kita bisa kosongkan ini atau arahkan ke hasil build jika menggunakan `go build`.
+# Namun karena `cmd` sudah menjalankan server, ini tidak wajib diisi.
+bin = ""
+
+# Perintah lengkap untuk menjalankan aplikasi ini dengan air.
+# Berguna sebagai dokumentasi.
+full_bin = "air -c .air.toml"
+
+# Ekstensi file yang akan dipantau perubahannya.
+# Kita tambahkan "tpl" untuk template generator kita.
+include_ext = ["go", "tpl", "toml"]
+
+# Direktori yang TIDAK akan dipantau.
+# Penting untuk mengecualikan `tmp` agar tidak terjadi loop tak terbatas.
+exclude_dir = ["tmp", "vendor", "public", "storage"]
+
+# File atau direktori yang akan dipantau secara spesifik.
+# Jika kosong, akan memantau semua di `root`.
+include_dir = []
+
+# File log untuk proses build oleh air.
+log = "air.log"
+
+# Waktu tunda sebelum build ulang setelah file berubah (dalam milidetik).
+delay = 1000 # 1 detik
+
+[log]
+# Tampilkan log waktu.
+time = true
+
+[color]
+# Kustomisasi warna untuk output.
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+# Hapus file log di `tmp_dir` saat keluar.
+clean_on_exit = true
