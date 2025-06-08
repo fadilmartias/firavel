@@ -1,4 +1,4 @@
-package controllers
+package controllers_v1
 
 import (
 	"goravel/app/models"

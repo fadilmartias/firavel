@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"goravel/app/http/controllers"
+	controllers_v1 "goravel/app/http/controllers/v1"
 	"goravel/app/http/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -9,20 +9,25 @@ import (
 )
 
 func RegisterApiRoutes(app *fiber.App, db *gorm.DB) {
-	userController := controllers.NewUserController(db)
+
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"message": "Hello, World!",
 		})
 	})
-	api := app.Group("/v1")
+	apiV1 := app.Group("/v1")
+	userController := controllers_v1.NewUserController(db)
+	authController := controllers_v1.NewAuthController(db)
 
-	api.Post("/login", userController.Login).Name("auth.login")
-	api.Post("/register", userController.Register).Name("auth.register")
-
-	authRoutes := api.Group("/users", middleware.Auth())
+	authRoutes := apiV1.Group("/auth")
 	{
-		authRoutes.Get("/", userController.Index).Name("users.index")
-		authRoutes.Get("/:id", userController.Show).Name("users.show")
+		authRoutes.Post("/login", authController.Login).Name("auth.login")
+		authRoutes.Post("/register", authController.Register).Name("auth.register")
+	}
+
+	userRoutes := apiV1.Group("/users", middleware.Auth())
+	{
+		userRoutes.Get("/", userController.Index).Name("users.index")
+		userRoutes.Get("/:id", userController.Show).Name("users.show")
 	}
 }
