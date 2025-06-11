@@ -349,10 +349,9 @@ func FetchAndCacheDynamic(
 				}
 			} else {
 				// Lakukan hal yang sama untuk PaginatedResponse
-				items := newSlice()
-				response := &PaginatedResponse[any]{Data: items}
-				if json.Unmarshal([]byte(cachedData), &response) == nil {
-					return response, nil
+				response := &PaginatedResponse[any]{Data: reflect.New(reflect.TypeOf(instance).Elem()).Interface()}
+				if json.Unmarshal([]byte(cachedData), response) == nil {
+					return *response, nil // Kembalikan data dari cache
 				}
 			}
 		}

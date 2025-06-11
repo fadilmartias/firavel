@@ -48,10 +48,9 @@ func (ctrl *GenericController) Index(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		// ... error handling
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{Code: http.StatusInternalServerError, Message: err.Error()})
 	}
 
-	// ... type switch untuk memformat respons ...
 	switch resp := apiResponse.(type) {
 	case utils.PaginatedResponse[any]:
 		return utils.SuccessResponse(c, utils.SuccessResponseFormat{
