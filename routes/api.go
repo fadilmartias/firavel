@@ -4,11 +4,12 @@ import (
 	controllers_v1 "goravel/app/http/controllers/v1"
 	"goravel/app/http/middleware"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
-func RegisterApiRoutes(app *fiber.App, db *gorm.DB) {
+func RegisterApiRoutes(app *fiber.App, db *gorm.DB, redis *redis.Client) {
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
@@ -16,8 +17,8 @@ func RegisterApiRoutes(app *fiber.App, db *gorm.DB) {
 		})
 	})
 	apiV1 := app.Group("/v1")
-	userController := controllers_v1.NewUserController(db)
-	authController := controllers_v1.NewAuthController(db)
+	userController := controllers_v1.NewUserController(db, redis)
+	authController := controllers_v1.NewAuthController(db, redis)
 
 	authRoutes := apiV1.Group("/auth")
 	{
@@ -25,9 +26,10 @@ func RegisterApiRoutes(app *fiber.App, db *gorm.DB) {
 		authRoutes.Post("/register", authController.Register).Name("auth.register")
 	}
 
-	userRoutes := apiV1.Group("/users", middleware.Auth())
+	userRoutes := apiV1.Group("/users", middleware.Auth(), middleware.Role([]string{"admin"}))
 	{
 		userRoutes.Get("/", userController.Index).Name("users.index")
+		userRoutes.Get("/flex", userController.Flex).Name("users.flex")
 		userRoutes.Get("/:id", userController.Show).Name("users.show")
 	}
 }

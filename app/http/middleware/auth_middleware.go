@@ -1,28 +1,72 @@
 package middleware
 
 import (
+	"fmt"
 	"goravel/app/utils"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt"
 )
 
-// Protected adalah contoh middleware proteksi rute.
-// Di aplikasi nyata, ini akan memverifikasi token JWT.
 func Auth() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// Contoh sederhana: cek header Authorization
 		token := c.Get("Authorization")
 
-		// Di sini Anda akan memvalidasi token (misalnya JWT)
-		// Untuk contoh ini, kita hanya cek jika token ada dan valid (dummy check)
-		if token != "Bearer valid-token" {
+		if token == "" {
 			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 				Code:    fiber.StatusUnauthorized,
-				Message: "Unauthorized: Missing or invalid token",
+				Message: "Unauthorized: Missing token",
 			})
 		}
 
-		// Jika valid, lanjutkan ke handler berikutnya
+		token = token[7:] // Remove "Bearer " prefix
+
+		// Bypass token
+		if token == "TestAdmin123" {
+			fmt.Println("✅ Bypass token")
+			// Simpan user langsung ke context
+			c.Locals("user", jwt.MapClaims{
+				"user_id": "00000A1",
+				"name":    "Admin",
+				"email":   "admin@gmail.com",
+				"role":    "admin",
+			})
+			return c.Next()
+		} else if token == "TestUser123" {
+			fmt.Println("✅ Bypass token")
+			// Simpan user langsung ke context
+			c.Locals("user", jwt.MapClaims{
+				"user_id": "00000A2",
+				"name":    "User",
+				"email":   "user@gmail.com",
+				"role":    "user",
+			})
+			return c.Next()
+		}
+
+		claims, err := utils.ValidateToken(token)
+		if err != nil {
+			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+				Code:    fiber.StatusUnauthorized,
+				Message: "Unauthorized: Invalid token",
+			})
+		}
+
+		if claims["user_id"] == nil {
+			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+				Code:    fiber.StatusUnauthorized,
+				Message: "Unauthorized: Invalid token",
+			})
+		}
+
+		userID := claims["user_id"].(string)
+		if userID == "" {
+			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+				Code:    fiber.StatusUnauthorized,
+				Message: "Unauthorized: Invalid token",
+			})
+		}
+		c.Locals("user", claims)
 		return c.Next()
 	}
 }

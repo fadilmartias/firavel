@@ -3,19 +3,20 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"goravel/app/models"
+	"goravel/cmd/cronjob"
+	"goravel/config"
+	"goravel/routes"
+	"log"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
-	"goravel/app/models"
-	"goravel/cmd/cronjob"
-	"goravel/config"
-	"goravel/routes"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"log"
 )
 
 func NewApp() *fiber.App {
@@ -34,9 +35,10 @@ func NewApp() *fiber.App {
 	cronjob.StartCronJob()
 	// Buat koneksi DB di sini
 	db := ConnectDB()
+	redis := ConnectRedis()
 
 	// Daftarkan Rute dan berikan (suntikkan) koneksi DB
-	routes.RegisterApiRoutes(app, db)
+	routes.RegisterApiRoutes(app, db, redis)
 	routes.RegisterWebsocketRoutes(app) // Asumsi rute websocket tidak butuh DB, jika butuh, ubah juga
 
 	return app
