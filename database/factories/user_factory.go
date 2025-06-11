@@ -25,6 +25,7 @@ func NewUser() models.User {
 	}
 	// Password tidak di-hash di sini, seeder yang akan melakukannya
 	user.Password = "password"
-	user.CreatedAt = fakerDateBetween(time.Now().AddDate(-2, 0, 0), time.Now())
+	createdAt := fakerDateBetween(time.Now().AddDate(-2, 0, 0), time.Now())
+	user.CreatedAt = &createdAt
 	return user
 }

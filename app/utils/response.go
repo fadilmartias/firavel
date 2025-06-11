@@ -7,6 +7,7 @@ type SuccessResponseFormat struct {
 	Message    string
 	Data       any
 	Pagination *Pagination
+	Meta       any
 }
 
 type ErrorResponseFormat struct {

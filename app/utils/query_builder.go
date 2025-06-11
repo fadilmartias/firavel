@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -283,12 +284,28 @@ type Pagination struct {
 // PaginatedResponse adalah struktur untuk data dengan paginasi (isSingle = false).
 type PaginatedResponse[T any] struct {
 	Pagination Pagination `json:"pagination"`
-	Data       []T        `json:"data"`
+	Data       T          `json:"data"`
 }
 
 // SingleResponse adalah struktur untuk data tunggal (isSingle = true).
 type SingleResponse[T any] struct {
 	Data T `json:"data"`
+}
+
+// buildPagination adalah helper internal untuk membuat struct Pagination.
+func buildPagination(totalItems int64, params *QueryParams) Pagination {
+	totalPages := int64(0)
+	// Hindari pembagian dengan nol jika limit tidak ada atau 0
+	if params.Limit > 0 {
+		totalPages = int64(math.Ceil(float64(totalItems) / float64(params.Limit)))
+	}
+
+	return Pagination{
+		Page:       params.Page,
+		PageSize:   params.Limit,
+		TotalPages: totalPages,
+		TotalItems: totalItems,
+	}
 }
 
 /**
@@ -304,91 +321,93 @@ type SingleResponse[T any] struct {
  * @param {bool} isSingle - Jika true, akan mengambil satu record (First); jika false, mengambil slice dengan paginasi.
  * @returns {any, error} - Mengembalikan PaginatedResponse[T] atau SingleResponse[T] dalam bentuk 'any', dan error jika terjadi.
  */
-func FetchAndCache[T any](
-	ctx context.Context, // Menerima context sebagai parameter pertama
+func FetchAndCacheDynamic(
+	ctx context.Context,
 	redisClient *redis.Client,
 	db *gorm.DB,
 	params *QueryParams,
 	cacheKey string,
 	cacheDuration time.Duration,
 	isSingle bool,
+	instance any,
+	newSlice func() any,
 ) (any, error) {
 
-	// 1. Coba ambil dari Cache menggunakan context yang diberikan
+	// 1. ================== Coba Ambil dari Cache ==================
 	if cacheKey != "" {
-		// Gunakan 'ctx' dari parameter
 		cachedData, err := redisClient.Get(ctx, cacheKey).Result()
+
+		// Jika cache ditemukan (err == nil)
 		if err == nil {
-			// ... (logika unmarshal cache hit tidak berubah)
+			// Kita perlu unmarshal ke struct yang tepat berdasarkan flag isSingle
 			if isSingle {
-				var response SingleResponse[T]
-				if json.Unmarshal([]byte(cachedData), &response) == nil {
-					return response, nil
+				// Buat instance baru dari SingleResponse yang berisi tipe data yang benar
+				// agar JSON bisa di-unmarshal dengan benar ke dalamnya.
+				response := &SingleResponse[any]{Data: reflect.New(reflect.TypeOf(instance).Elem()).Interface()}
+				if json.Unmarshal([]byte(cachedData), response) == nil {
+					return *response, nil // Kembalikan data dari cache
 				}
 			} else {
-				var response PaginatedResponse[T]
+				// Lakukan hal yang sama untuk PaginatedResponse
+				items := newSlice()
+				response := &PaginatedResponse[any]{Data: items}
 				if json.Unmarshal([]byte(cachedData), &response) == nil {
 					return response, nil
 				}
 			}
 		}
+		// Jika cache tidak ditemukan (redis.Nil), kita abaikan error dan lanjut ke DB.
+		// Jika error lain, kita bisa log tapi tetap lanjut ke DB sebagai fallback.
+		if err != redis.Nil {
+			fmt.Printf("Redis error on GET: %v. Fetching from DB as fallback.\n", err)
+		}
 	}
 
-	// 2. Jika Cache Miss, ambil dari Database
+	// 2. ================== Ambil dari Database (Cache Miss) ==================
 	var response any
 	var dbErr error
 
-	// Penting: Terapkan context ke GORM
-	// Ini akan membuat kueri GORM dapat dibatalkan jika context-nya selesai.
+	// Pastikan semua kueri GORM menggunakan context dari request
 	db = db.WithContext(ctx)
 
 	if isSingle {
-		var result T
-		dbErr = db.First(&result).Error // Kueri ini sekarang cancellable
+		// Buat instance baru dari tipe model yang dinamis menggunakan reflection
+		result := reflect.New(reflect.TypeOf(instance).Elem()).Interface()
+		dbErr = db.First(result).Error
 		if dbErr != nil {
 			return nil, dbErr
 		}
-		response = SingleResponse[T]{Data: result}
+		response = SingleResponse[any]{Data: result}
 	} else {
-		// ... (logika paginasi tidak berubah)
-		var items []T
 		var totalItems int64
-		model := new(T)
+		// Hitung total item sebelum paginasi untuk metadata pagination
+		db.Model(instance).Count(&totalItems)
 
-		dbErr = db.Model(model).Count(&totalItems).Error
-		if dbErr != nil {
-			return nil, dbErr
-		}
-
+		// Buat slice baru dari tipe model yang dinamis
+		items := newSlice()
+		// Terapkan paginasi dan ambil data
 		paginatedDb := applyPagination(db, params.Limit, params.Page, false)
-		dbErr = paginatedDb.Find(&items).Error
+		dbErr = paginatedDb.Find(items).Error
 		if dbErr != nil {
 			return nil, dbErr
 		}
 
-		// ... (logika pembuatan objek paginasi tidak berubah)
-		totalPages := int64(0)
-		if params.Limit > 0 {
-			totalPages = int64(math.Ceil(float64(totalItems) / float64(params.Limit)))
-		}
-		pagination := Pagination{
-			Page:       params.Page,
-			PageSize:   params.Limit,
-			TotalPages: totalPages,
-			TotalItems: totalItems,
-		}
-		response = PaginatedResponse[T]{
-			Pagination: pagination,
+		pagination := buildPagination(totalItems, params)
+		response = PaginatedResponse[any]{ // Buat struct respons setelahnya
 			Data:       items,
+			Pagination: pagination,
 		}
 	}
 
-	// 3. Simpan hasil ke Cache jika perlu
+	// 3. ================== Simpan Hasil ke Cache ==================
 	if cacheKey != "" && dbErr == nil {
 		jsonResponse, err := json.Marshal(response)
 		if err == nil {
-			// Gunakan 'ctx' dari parameter
-			redisClient.SetEX(ctx, cacheKey, jsonResponse, cacheDuration)
+			// Set cache dengan Expiration (TTL). Abaikan error jika gagal set cache.
+			err := redisClient.SetEX(ctx, cacheKey, jsonResponse, cacheDuration).Err()
+			if err != nil {
+				fmt.Printf("Failed to set cache for key '%s': %v\n", cacheKey, err)
+			}
 		}
 	}
 

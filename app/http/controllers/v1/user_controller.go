@@ -3,9 +3,6 @@ package controllers_v1
 import (
 	"goravel/app/models"
 	"goravel/app/utils"
-	"net/http"
-	"net/url"
-	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
@@ -57,73 +54,4 @@ func (ctrl *UserController) Show(c *fiber.Ctx) error {
 		Message: "User fetched successfully",
 		Data:    user,
 	})
-}
-
-// Ganti `models.User` dengan struct model yang ingin Anda ambil
-func (ctrl *UserController) Flex(c *fiber.Ctx) error {
-	// --- LANGKAH 1: Parse URL Params ---
-	queryParams := c.Request().URI().QueryArgs()
-	urlValues := make(url.Values)
-	queryParams.VisitAll(func(key, value []byte) {
-		urlValues.Add(string(key), string(value))
-	})
-	params := utils.NewQueryParams(urlValues) // Buat struct params
-
-	// --- LANGKAH 2: Bangun Kueri GORM ---
-	// Tentukan model yang akan di-query
-	tx := ctrl.DB.Model(&models.User{})
-	// Bangun kueri dinamis dari params
-	tx = utils.BuildGormQuery(tx, urlValues, false)
-
-	// --- LANGKAH 3: Fetch Data dengan Caching ---
-	// Buat cache key yang unik berdasarkan query
-	cacheKey := "users:" + string(c.Request().URI().QueryString())
-	cacheDuration := 5 * time.Minute // Contoh durasi cache
-
-	// Panggil FetchAndCache dengan argumen dan tipe generic yang benar
-	response, err := utils.FetchAndCache[models.User](
-		c.UserContext(), // 1. Context dari Fiber
-		ctrl.Redis,      // 2. Klien Redis
-		tx,              // 3. Objek kueri GORM yang sudah dibangun
-		params,          // 4. Struct QueryParams
-		cacheKey,        // 5. Kunci Cache
-		cacheDuration,   // 6. Durasi Cache
-		false,           // 7. isSingle
-	)
-
-	if err != nil {
-		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    http.StatusInternalServerError,
-			Message: "Gagal mengambil data",
-			Details: err.Error(),
-		})
-	}
-
-	switch resp := response.(type) {
-
-	// Kasus jika respons memiliki paginasi
-	case utils.PaginatedResponse[models.User]:
-		return utils.SuccessResponse(c, utils.SuccessResponseFormat{
-			Code:       http.StatusOK,
-			Message:    "Data berhasil diambil",
-			Data:       resp.Data,        // <-- Ambil data dari dalam struct
-			Pagination: &resp.Pagination, // <-- Ambil pagination dari dalam struct
-		})
-
-	// Kasus jika respons adalah data tunggal
-	case utils.SingleResponse[models.User]:
-		return utils.SuccessResponse(c, utils.SuccessResponseFormat{
-			Code:       http.StatusOK,
-			Message:    "Data berhasil diambil",
-			Data:       resp.Data, // <-- Ambil data dari dalam struct
-			Pagination: nil,       // <-- Tidak ada pagination
-		})
-
-	// Kasus default jika tipe tidak terduga
-	default:
-		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    http.StatusInternalServerError,
-			Message: "Tipe respons tidak valid",
-		})
-	}
 }
