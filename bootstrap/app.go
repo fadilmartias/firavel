@@ -2,40 +2,97 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"goravel/app/logger"
 	"goravel/app/models"
+	"goravel/app/utils"
 	"goravel/cmd/cronjob"
 	"goravel/config"
 	"goravel/routes"
 	"log"
+	"os"
+	"time"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/etag"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
+	"github.com/gofiber/fiber/v2/middleware/idempotency"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 func NewApp() *fiber.App {
+	logger.Init()
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Warning: Could not load .env file")
 	}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		AppName:     os.Getenv("APP_NAME"),
+		JSONEncoder: sonic.Marshal,
+		JSONDecoder: sonic.Unmarshal,
+		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
+			// Status code defaults to 500
+			code := fiber.StatusInternalServerError
+
+			// Retrieve the custom status code if it's a *fiber.Error
+			var e *fiber.Error
+			if errors.As(err, &e) {
+				code = e.Code
+			}
+
+			message := err.Error()
+			if message == "" {
+				message = "Internal Server Error"
+			}
+
+			return utils.ErrorResponse(ctx, utils.ErrorResponseFormat{
+				Code:    code,
+				Message: message,
+				Details: err,
+			})
+		},
+	})
+	app.Use(logger.FiberErrorLogger())
+	// Buat koneksi DB di sini
+	db := ConnectDB()
+	redis := ConnectRedis()
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: os.Getenv("APP_ENV") != "production",
+	}))
+	app.Use(etag.New())
+	app.Use(helmet.New())
+	app.Use(idempotency.New())
+	app.Use(limiter.New(limiter.Config{
+		Next: func(c *fiber.Ctx) bool {
+			return c.IP() == "127.0.0.1"
+		},
+		Max:        20,
+		Expiration: 30 * time.Second,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.Get("x-forwarded-for")
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.SendStatus(fiber.StatusTooManyRequests)
+		},
+		LimiterMiddleware: limiter.SlidingWindow{},
+	}))
 	app.Use(cors.New())
-	app.Use(logger.New())
 	app.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed, // 1
 	}))
 	app.Static("/", "./public") // Static file
 	cronjob.StartCronJob()
-	// Buat koneksi DB di sini
-	db := ConnectDB()
-	redis := ConnectRedis()
 
 	// Daftarkan Rute dan berikan (suntikkan) koneksi DB
 	routes.RegisterApiRoutes(app, db, redis)

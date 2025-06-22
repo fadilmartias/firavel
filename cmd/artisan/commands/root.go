@@ -4,8 +4,8 @@ import "github.com/spf13/cobra"
 
 var rootCmd = &cobra.Command{
 	Use:   "artisan",
-	Short: "Artisan is a CLI tool for Goavel",
-	Long:  `A powerful CLI tool inspired by Laravel's Artisan to help manage and build your Goavel application.`,
+	Short: "Artisan is a CLI tool for Goravel",
+	Long:  `A powerful CLI tool inspired by Laravel's Artisan to help manage and build your Goravel application.`,
 }
 
 func Execute() error {
