@@ -1,9 +1,9 @@
 package routes
 
 import (
-	controllers_v0 "goravel/app/http/controllers/v0"
-	controllers_v1 "goravel/app/http/controllers/v1"
-	"goravel/app/http/middleware"
+	controllers_v0 "github.com/fadilmartias/firavel/app/http/controllers/v0"
+	controllers_v1 "github.com/fadilmartias/firavel/app/http/controllers/v1"
+	"github.com/fadilmartias/firavel/app/http/middleware"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"

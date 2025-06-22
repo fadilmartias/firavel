@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"goravel/app/logger"
-	"goravel/app/models"
-	"goravel/app/utils"
-	"goravel/cmd/cronjob"
-	"goravel/config"
-	"goravel/routes"
 	"log"
 	"os"
 	"time"
+
+	"github.com/fadilmartias/firavel/app/logger"
+	"github.com/fadilmartias/firavel/app/models"
+	"github.com/fadilmartias/firavel/app/utils"
+	"github.com/fadilmartias/firavel/cmd/cronjob"
+	"github.com/fadilmartias/firavel/config"
+	"github.com/fadilmartias/firavel/routes"
 
 	"github.com/bytedance/sonic"
 

@@ -2,9 +2,10 @@ package commands
 
 import (
 	"fmt"
-	"goravel/bootstrap"
 	"os"
 	"text/tabwriter"
+
+	"github.com/fadilmartias/firavel/bootstrap"
 
 	"github.com/spf13/cobra"
 )

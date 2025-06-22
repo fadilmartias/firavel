@@ -1,8 +1,9 @@
 package migrations
 
 import (
-	"goravel/app/models"
 	"log"
+
+	"github.com/fadilmartias/firavel/app/models"
 
 	"gorm.io/gorm"
 )

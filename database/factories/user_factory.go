@@ -1,10 +1,11 @@
 package factories
 
 import (
-	"goravel/app/models"
 	"log"
 	"math/rand"
 	"time"
+
+	"github.com/fadilmartias/firavel/app/models"
 
 	"github.com/bxcodec/faker/v3"
 )

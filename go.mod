@@ -1,4 +1,4 @@
-module goravel
+module github.com/fadilmartias/firavel
 
 go 1.24
 

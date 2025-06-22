@@ -1,9 +1,10 @@
 package main
 
 import (
-	"goravel/bootstrap"
-	"goravel/config"
 	"log"
+
+	"github.com/fadilmartias/firavel/bootstrap"
+	"github.com/fadilmartias/firavel/config"
 )
 
 func main() {

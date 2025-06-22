@@ -1,10 +1,11 @@
 package controllers_v1
 
 import (
-	"goravel/app/models"
-	"goravel/app/utils"
 	"log"
 	"time"
+
+	"github.com/fadilmartias/firavel/app/models"
+	"github.com/fadilmartias/firavel/app/utils"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"

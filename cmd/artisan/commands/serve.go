@@ -1,9 +1,10 @@
 package commands
 
 import (
-	"goravel/bootstrap"
-	"goravel/config"
 	"log"
+
+	"github.com/fadilmartias/firavel/bootstrap"
+	"github.com/fadilmartias/firavel/config"
 
 	"github.com/spf13/cobra"
 )

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"goravel/app/utils"
+	"github.com/fadilmartias/firavel/app/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"

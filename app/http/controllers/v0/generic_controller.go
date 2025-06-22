@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"time"
 
-	"goravel/app/processors"
-	"goravel/app/registry"
-	"goravel/app/utils" // Ganti dengan path utils Anda
+	"github.com/fadilmartias/firavel/app/processors"
+	"github.com/fadilmartias/firavel/app/registry"
+	"github.com/fadilmartias/firavel/app/utils" // Ganti dengan path utils Anda
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"

@@ -1,8 +1,9 @@
 package seeders
 
 import (
-	"goravel/bootstrap"
 	"log"
+
+	"github.com/fadilmartias/firavel/bootstrap"
 )
 
 // RunAllSeeders adalah entry point untuk menjalankan semua seeder.

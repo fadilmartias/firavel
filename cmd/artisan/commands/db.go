@@ -2,9 +2,10 @@ package commands
 
 import (
 	"fmt"
-	"goravel/bootstrap"
-	"goravel/database/migrations"
-	"goravel/database/seeders"
+
+	"github.com/fadilmartias/firavel/bootstrap"
+	"github.com/fadilmartias/firavel/database/migrations"
+	"github.com/fadilmartias/firavel/database/seeders"
 
 	"github.com/spf13/cobra"
 )

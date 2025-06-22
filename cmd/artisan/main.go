@@ -1,8 +1,9 @@
 package main
 
 import (
-	"goravel/cmd/artisan/commands"
 	"log"
+
+	"github.com/fadilmartias/firavel/cmd/artisan/commands"
 
 	"github.com/joho/godotenv"
 )

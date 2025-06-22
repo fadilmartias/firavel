@@ -2,8 +2,9 @@ package registry
 
 import (
 	"fmt"
-	"goravel/app/models"
 	"reflect"
+
+	"github.com/fadilmartias/firavel/app/models"
 )
 
 // ModelInfo sekarang lebih sederhana

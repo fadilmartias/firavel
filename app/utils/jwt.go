@@ -1,9 +1,10 @@
 package utils
 
 import (
-	"goravel/app/models"
 	"os"
 	"time"
+
+	"github.com/fadilmartias/firavel/app/models"
 
 	"github.com/golang-jwt/jwt"
 )

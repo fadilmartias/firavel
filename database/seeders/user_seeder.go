@@ -2,10 +2,11 @@ package seeders
 
 import (
 	"fmt"
-	"goravel/app/models"
-	_ "goravel/app/models"
-	"goravel/database/factories"
 	"log"
+
+	"github.com/fadilmartias/firavel/app/models"
+	_ "github.com/fadilmartias/firavel/app/models"
+	"github.com/fadilmartias/firavel/database/factories"
 
 	"gorm.io/gorm"
 )
