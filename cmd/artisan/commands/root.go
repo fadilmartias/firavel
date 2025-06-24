@@ -16,6 +16,7 @@ func init() {
 	// Tambahkan semua perintah di sini
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(dbCmd)
-	rootCmd.AddCommand(makeCmd)
+	rootCmd.AddCommand(makeFileCmd)
 	rootCmd.AddCommand(routeListCmd)
+	rootCmd.AddCommand(makeResponseCmd)
 }

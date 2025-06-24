@@ -5,13 +5,12 @@ import (
 	"time"
 
 	"github.com/fadilmartias/firavel/app/models"
-
 	"github.com/golang-jwt/jwt"
 )
 
 func GenerateToken(user *models.User) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": user.Id,
+		"user_id": user.ID,
 		"name":    user.Name,
 		"email":   user.Email,
 		"role":    user.Role,

@@ -15,7 +15,7 @@ func SeedUsers(db *gorm.DB, count int) {
 	log.Printf("Seeding %d users...", count)
 	users := make([]models.User, 0, count)
 	admin := models.User{
-		Id:       "00000A1",
+		ID:       "00000A1",
 		Name:     "Admin",
 		Email:    "admin@gmail.com",
 		Password: "namakau123",
@@ -25,7 +25,7 @@ func SeedUsers(db *gorm.DB, count int) {
 	}
 	users = append(users, admin)
 	user := models.User{
-		Id:       "00000A2",
+		ID:       "00000A2",
 		Name:     "User",
 		Email:    "user@gmail.com",
 		Password: "namakau123",

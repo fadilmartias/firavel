@@ -7,34 +7,93 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/fadilmartias/firavel/app/utils"
+	"github.com/fadilmartias/firavel/cmd/file_template"
+	"github.com/jinzhu/inflection"
 	"github.com/spf13/cobra"
 )
 
-// Grup perintah make
-var makeCmd = &cobra.Command{
-	Use:   "make",
-	Short: "Commands to create new files",
-}
-
-var makeControllerCmd = &cobra.Command{
-	Use:   "controller [name]",
-	Short: "Create a new controller file",
-	Args:  cobra.ExactArgs(1),
+var makeFileCmd = &cobra.Command{
+	Use:   "make:file",
+	Short: "Generate files (controller, model, seeder, etc)",
 	Run: func(cmd *cobra.Command, args []string) {
-		name := args[0]
-		if !strings.HasSuffix(name, "Controller") {
-			name += "Controller"
+		var choices = []string{
+			"Controller",
+			"Model",
+			"Migration",
+			"Seeder",
+			"Factory",
+			"Response",
 		}
-		data := struct{ Name string }{Name: name}
-		createFileFromTemplate("app/http/controllers", name+".go", controllerTemplate, data)
+		selected := []string{}
+		prompt := &survey.MultiSelect{
+			Message: "Select file types to generate:",
+			Options: choices,
+		}
+		survey.AskOne(prompt, &selected)
+
+		var name string
+		survey.AskOne(&survey.Input{
+			Message: "Enter base name (without suffix):",
+		}, &name)
+
+		lowercaseName := strings.ToLower(name)
+		for _, item := range selected {
+			switch item {
+			case "Controller":
+				createFileFromTemplate("app/http/controllers/v1", utils.SnakeCase(lowercaseName)+"_controller.go", file_template.ControllerTemplate, map[string]string{
+					"Name":       utils.StudlyCase(name) + "Controller",
+					"LowerName":  lowercaseName,
+					"SnakeName":  utils.SnakeCase(lowercaseName),
+					"PluralName": inflection.Plural(utils.SnakeCase(lowercaseName)),
+				})
+			case "Model":
+				createFileFromTemplate("app/models", utils.SnakeCase(lowercaseName)+"_model.go", file_template.ModelTemplate, map[string]string{
+					"Name":       utils.StudlyCase(name),
+					"LowerName":  lowercaseName,
+					"SnakeName":  utils.SnakeCase(lowercaseName),
+					"PluralName": inflection.Plural(utils.SnakeCase(lowercaseName)),
+				})
+			case "Seeder":
+				createFileFromTemplate("database/seeders", utils.SnakeCase(lowercaseName)+"_seeder.go", file_template.SeederTemplate, map[string]string{
+					"Name":       utils.StudlyCase(name),
+					"LowerName":  lowercaseName,
+					"SnakeName":  utils.SnakeCase(lowercaseName),
+					"PluralName": inflection.Plural(utils.SnakeCase(lowercaseName)),
+				})
+
+			case "Migration":
+				migrationName := fmt.Sprintf("create_%s_table", inflection.Plural(utils.SnakeCase(lowercaseName)))
+				timestampStr := utils.Timestamp()
+				filename := fmt.Sprintf("%s_%s.go", timestampStr, migrationName)
+				createFileFromTemplate("database/migrations", filename, file_template.MigrationTemplate, map[string]string{
+					"MigrationName": migrationName,
+					"Timestamp":     timestampStr,
+					"Name":          utils.StudlyCase(name),
+					"LowerName":     lowercaseName,
+					"SnakeName":     utils.SnakeCase(lowercaseName),
+					"PluralName":    inflection.Plural(utils.SnakeCase(lowercaseName)),
+				})
+			case "Factory":
+				createFileFromTemplate("database/factories", utils.SnakeCase(lowercaseName)+"_factory.go", file_template.FactoryTemplate, map[string]string{
+					"Name":       utils.StudlyCase(name),
+					"LowerName":  lowercaseName,
+					"SnakeName":  utils.SnakeCase(lowercaseName),
+					"PluralName": inflection.Plural(utils.SnakeCase(lowercaseName)),
+				})
+			case "Response":
+				createFileFromTemplate("app/responses", utils.SnakeCase(lowercaseName)+"_response.go", file_template.ResponseTemplate, map[string]string{
+					"Name":       utils.StudlyCase(name) + "Response",
+					"LowerName":  lowercaseName,
+					"SnakeName":  utils.SnakeCase(lowercaseName),
+					"PluralName": inflection.Plural(utils.SnakeCase(lowercaseName)),
+				})
+			}
+		}
 	},
 }
 
-func init() {
-	makeCmd.AddCommand(makeControllerCmd)
-}
-
-// Helper untuk membuat file dari template
 func createFileFromTemplate(dir, filename, tmplContent string, data interface{}) {
 	path := filepath.Join(dir, filename)
 	if _, err := os.Stat(path); err == nil {
@@ -69,26 +128,3 @@ func createFileFromTemplate(dir, filename, tmplContent string, data interface{})
 
 	fmt.Printf("File created successfully: %s\n", path)
 }
-
-// Isi template untuk controller
-const controllerTemplate = `package controllers
-
-import "github.com/gofiber/fiber/v2"
-
-type {{.Name}} struct {
-	BaseController
-}
-
-func New{{.Name}}() *{{.Name}} {
-	return &{{.Name}}{}
-}
-
-// Index example method
-func (ctrl *{{.Name}}) Index(c *fiber.Ctx) error {
-	return ctrl.SuccessResponse(c, SuccessResponseFormat{
-		Code:    fiber.StatusOK,
-		Message: "Hello from {{.Name}}",
-		Data:    nil,
-	})
-}
-`

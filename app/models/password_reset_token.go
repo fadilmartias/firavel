@@ -7,7 +7,7 @@ import (
 )
 
 type PasswordResetToken struct {
-	Id        string     `gorm:"primarykey;not null;size:7" json:"id,omitempty"`
+	ID        string     `gorm:"primarykey;not null;size:7" json:"id,omitempty"`
 	Email     string     `gorm:"not null;size:100" faker:"email" json:"email,omitempty"`
 	Token     string     `gorm:"not null;size:255" faker:"password" json:"token,omitempty"`
 	ExpiredAt *time.Time `gorm:"not null" faker:"date" json:"expired_at,omitempty"`

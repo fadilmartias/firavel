@@ -1,0 +1,4 @@
+{"level":"ERROR","time":"24-06-2025 20:44:53","caller":"logger/fiber_middleware.go:12","msg":"Fiber error: runtime error: invalid memory address or nil pointer dereference | Path: /v0/users | IP: 127.0.0.1"}
+{"level":"ERROR","time":"24-06-2025 20:45:13","caller":"logger/fiber_middleware.go:12","msg":"Fiber error: runtime error: invalid memory address or nil pointer dereference | Path: /v0/users | IP: 127.0.0.1"}
+{"level":"ERROR","time":"24-06-2025 20:47:09","caller":"logger/fiber_middleware.go:12","msg":"Fiber error: runtime error: invalid memory address or nil pointer dereference | Path: /v0/users | IP: 127.0.0.1"}
+{"level":"ERROR","time":"24-06-2025 20:49:07","caller":"logger/fiber_middleware.go:12","msg":"Fiber error: runtime error: invalid memory address or nil pointer dereference | Path: /v0/users | IP: 127.0.0.1"}

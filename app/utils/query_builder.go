@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fadilmartias/firavel/app/responses"
 	"github.com/go-redis/redis/v8" // atau v9
+	"github.com/jinzhu/copier"
 	"gorm.io/gorm"
 )
 
@@ -333,82 +335,122 @@ func FetchAndCacheDynamic(
 	newSlice func() any,
 ) (any, error) {
 
-	// 1. ================== Coba Ambil dari Cache ==================
+	modelType := reflect.TypeOf(instance).Elem()
+
+	// Coba ambil response type dari registry, fallback ke model
+	responseType, ok := responses.Get(modelType.Name())
+	fmt.Println("📦 Using responseType for", modelType.Name(), ":", responseType.Name())
+
+	if !ok {
+		responseType = modelType
+	}
+
+	// ================== 1. Coba Ambil dari Cache ==================
 	if cacheKey != "" {
 		cachedData, err := redisClient.Get(ctx, cacheKey).Result()
-
-		// Jika cache ditemukan (err == nil)
 		if err == nil {
-			// Kita perlu unmarshal ke struct yang tepat berdasarkan flag isSingle
 			if isSingle {
-				// Buat instance baru dari SingleResponse yang berisi tipe data yang benar
-				// agar JSON bisa di-unmarshal dengan benar ke dalamnya.
-				response := &SingleResponse[any]{Data: reflect.New(reflect.TypeOf(instance).Elem()).Interface()}
+				result := reflect.New(responseType).Interface()
+				response := &SingleResponse[any]{Data: result}
 				if json.Unmarshal([]byte(cachedData), response) == nil {
-					return *response, nil // Kembalikan data dari cache
+					fmt.Println("📦 Using cached single response for", modelType.Name())
+					return *response, nil
 				}
 			} else {
-				// Lakukan hal yang sama untuk PaginatedResponse
-				response := &PaginatedResponse[any]{Data: reflect.New(reflect.TypeOf(instance).Elem()).Interface()}
+				sliceType := reflect.SliceOf(responseType)
+				result := reflect.New(sliceType).Interface()
+				response := &PaginatedResponse[any]{Data: result}
 				if json.Unmarshal([]byte(cachedData), response) == nil {
-					return *response, nil // Kembalikan data dari cache
+					fmt.Println("📦 Using cached single response for", modelType.Name())
+					return *response, nil
 				}
 			}
-		}
-		// Jika cache tidak ditemukan (redis.Nil), kita abaikan error dan lanjut ke DB.
-		// Jika error lain, kita bisa log tapi tetap lanjut ke DB sebagai fallback.
-		if err != redis.Nil {
+		} else if err != redis.Nil {
 			fmt.Printf("Redis error on GET: %v. Fetching from DB as fallback.\n", err)
 		}
 	}
 
-	// 2. ================== Ambil dari Database (Cache Miss) ==================
+	// ================== 2. Ambil dari DB ==================
 	var response any
 	var dbErr error
 
-	// Pastikan semua kueri GORM menggunakan context dari request
 	db = db.WithContext(ctx)
 
 	if isSingle {
-		// Buat instance baru dari tipe model yang dinamis menggunakan reflection
-		result := reflect.New(reflect.TypeOf(instance).Elem()).Interface()
-		dbErr = db.First(result).Error
+		// Query pakai instance (model), simpan ke modelResult
+		modelResult := reflect.New(modelType).Interface()
+		dbErr = db.First(modelResult).Error
 		if dbErr != nil {
 			return nil, dbErr
 		}
+
+		// Transform ke response jika tersedia
+		var result any = modelResult
+		if responseType != modelType {
+			result = mapToResponse(modelResult, responseType)
+		}
+
 		response = SingleResponse[any]{Data: result}
 	} else {
 		var totalItems int64
-		// Hitung total item sebelum paginasi untuk metadata pagination
 		db.Model(instance).Count(&totalItems)
 
-		// Buat slice baru dari tipe model yang dinamis
-		items := newSlice()
-		// Terapkan paginasi dan ambil data
+		// Query ke DB pakai model slice
+		modelSliceType := reflect.SliceOf(modelType)
+		modelSlice := reflect.New(modelSliceType).Interface()
+
 		paginatedDb := applyPagination(db, params.Limit, params.Page, false)
-		dbErr = paginatedDb.Find(items).Error
+		dbErr = paginatedDb.Find(modelSlice).Error
 		if dbErr != nil {
 			return nil, dbErr
 		}
 
+		var finalData any = modelSlice
+		if responseType != modelType {
+			finalData = mapSliceToResponse(modelSlice, responseType)
+		}
+
 		pagination := buildPagination(totalItems, params)
-		response = PaginatedResponse[any]{ // Buat struct respons setelahnya
-			Data:       items,
+		response = PaginatedResponse[any]{
+			Data:       finalData,
 			Pagination: pagination,
 		}
 	}
 
-	// 3. ================== Simpan Hasil ke Cache ==================
+	// ================== 3. Simpan ke Cache ==================
 	if cacheKey != "" && dbErr == nil {
-		jsonResponse, err := json.Marshal(response)
-		if err == nil {
-			// Set cache dengan Expiration (TTL). Abaikan error jika gagal set cache.
-			err := redisClient.SetEX(ctx, cacheKey, jsonResponse, cacheDuration).Err()
-			if err != nil {
+		if jsonResponse, err := json.Marshal(response); err == nil {
+			if err := redisClient.SetEX(ctx, cacheKey, jsonResponse, cacheDuration).Err(); err != nil {
 				fmt.Printf("Failed to set cache for key '%s': %v\n", cacheKey, err)
 			}
 		}
 	}
 
 	return response, nil
+}
+
+func mapToResponse(src any, dstType reflect.Type) any {
+	dst := reflect.New(dstType).Interface()
+	_ = copier.CopyWithOption(dst, src, copier.Option{
+		IgnoreEmpty: true,
+		DeepCopy:    true,
+	})
+	return dst
+}
+
+func mapSliceToResponse(src any, dstType reflect.Type) any {
+	srcVal := reflect.ValueOf(src).Elem()
+	dstSliceType := reflect.SliceOf(dstType)
+	dstSlice := reflect.MakeSlice(dstSliceType, 0, srcVal.Len())
+
+	for i := 0; i < srcVal.Len(); i++ {
+		dstItem := reflect.New(dstType).Interface()
+		_ = copier.CopyWithOption(dstItem, srcVal.Index(i).Interface(), copier.Option{
+			IgnoreEmpty: true,
+			DeepCopy:    true,
+		})
+		dstSlice = reflect.Append(dstSlice, reflect.ValueOf(dstItem).Elem())
+	}
+
+	return dstSlice.Interface()
 }
