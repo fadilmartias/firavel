@@ -21,9 +21,9 @@ func RegisterApiRoutes(app *fiber.App, db *gorm.DB, redis *redis.Client) {
 	genericController := controllers_v0.NewGenericController(db, redis)
 	apiV0.Get("/:model", genericController.Index).Name("generic.index")
 	apiV0.Get("/:model/:id", genericController.Show).Name("generic.show")
-	apiV0.Post("/:model", genericController.Store).Name("generic.store")
-	apiV0.Put("/:model/:id", genericController.Update).Name("generic.update")
-	apiV0.Delete("/:model/:id", genericController.Destroy).Name("generic.destroy")
+	apiV0.Post("/:model", genericController.Store, middleware.Auth(), middleware.Role([]string{"admin"})).Name("generic.store")
+	apiV0.Put("/:model/:id", genericController.Update, middleware.Auth(), middleware.Role([]string{"admin"})).Name("generic.update")
+	apiV0.Delete("/:model/:id", genericController.Destroy, middleware.Auth(), middleware.Role([]string{"admin"})).Name("generic.destroy")
 
 	apiV1 := app.Group("/v1")
 	userController := controllers_v1.NewUserController(db, redis)
