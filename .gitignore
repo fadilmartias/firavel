@@ -24,6 +24,8 @@ go.work
 /tmp
 air.log
 
+/storage/logs/*
+
 /public/uploads/tmp/images/*
 /public/uploads/tmp/docs/*
 /public/uploads/images/*
