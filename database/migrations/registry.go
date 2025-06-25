@@ -1,4 +1,3 @@
-// database/migrations/registry.go (atau file lain yang inisialisasi RegisterMigration)
 package migrations
 
 import (

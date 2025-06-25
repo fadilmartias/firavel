@@ -3,7 +3,6 @@ package factories
 import (
 	"log"
 	"math/rand"
-	"time"
 
 	"github.com/fadilmartias/firavel/app/models"
 	"github.com/fadilmartias/firavel/app/utils"
@@ -11,12 +10,12 @@ import (
 	"github.com/bxcodec/faker/v3"
 )
 
-func fakerDateBetween(start, end time.Time) time.Time {
-	diff := end.Sub(start)
-	// Ambil waktu acak antara start dan end
-	randSeconds := time.Duration(rand.Int63n(int64(diff)))
-	return start.Add(randSeconds)
-}
+// func fakerDateBetween(start, end time.Time) time.Time {
+// 	diff := end.Sub(start)
+// 	// Ambil waktu acak antara start dan end
+// 	randSeconds := time.Duration(rand.Int63n(int64(diff)))
+// 	return start.Add(randSeconds)
+// }
 
 // NewUser membuat instance User baru dengan data palsu tanpa menyimpannya.
 func NewUser() models.User {
@@ -30,10 +29,6 @@ func NewUser() models.User {
 	roles := []string{"admin", "user"}
 	user.Role = roles[rand.Intn(len(roles))]
 	user.Password = "password"
-	createdAt := fakerDateBetween(time.Now().AddDate(-2, 0, 0), time.Now())
-	user.CreatedAt = createdAt
 	user.EmailVerifiedAt = nil
-	user.UpdatedAt = nil
-	user.DeletedAt = nil
 	return user
 }
