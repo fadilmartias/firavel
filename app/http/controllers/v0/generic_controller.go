@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"time"
 
@@ -42,7 +43,18 @@ func (ctrl *GenericController) Index(c *fiber.Ctx) error {
 	tx := ctrl.DB.Model(modelInfo.Instance)
 	tx = utils.BuildGormQuery(tx, urlValues, false)
 
-	cacheKey := fmt.Sprintf("api:%s:%s", modelName, c.Request().URI().QueryString())
+	isCache := os.Getenv("APP_ENV") != "local"
+
+	// Cek query (optional override juga kalau mau)
+	if c.Query("cache") == "false" {
+		isCache = false
+	}
+
+	var cacheKey string
+	if isCache {
+		cacheKey = fmt.Sprintf("api:%s:%s", modelName, c.Request().URI().QueryString())
+	}
+
 	apiResponse, err := utils.FetchAndCacheDynamic(
 		c.UserContext(), ctrl.Redis, tx, params, cacheKey, 1*time.Minute, false,
 		modelInfo.Instance, modelInfo.NewSlice,
@@ -87,7 +99,18 @@ func (ctrl *GenericController) Show(c *fiber.Ctx) error {
 	}
 	tx = utils.BuildGormQuery(tx, urlValues, true)
 
-	cacheKey := fmt.Sprintf("api:%s:%s", modelName, id)
+	isCache := os.Getenv("APP_ENV") != "local"
+
+	// Cek query (optional override juga kalau mau)
+	if c.Query("cache") == "false" {
+		isCache = false
+	}
+
+	var cacheKey string
+	if isCache {
+		cacheKey = fmt.Sprintf("api:%s:%s:%s", modelName, id, c.Request().URI().QueryString())
+	}
+
 	apiResponse, err := utils.FetchAndCacheDynamic(
 		c.UserContext(), ctrl.Redis, tx, params, cacheKey, 5*time.Minute, true,
 		modelInfo.Instance, modelInfo.NewSlice,
