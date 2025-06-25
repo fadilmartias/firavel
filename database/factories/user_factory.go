@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fadilmartias/firavel/app/models"
+	"github.com/fadilmartias/firavel/app/utils"
 
 	"github.com/bxcodec/faker/v3"
 )
@@ -25,8 +26,14 @@ func NewUser() models.User {
 		log.Printf("Error faking user data: %v", err)
 	}
 	// Password tidak di-hash di sini, seeder yang akan melakukannya
+	user.ID = utils.GenerateShortID(7)
+	roles := []string{"admin", "user"}
+	user.Role = roles[rand.Intn(len(roles))]
 	user.Password = "password"
 	createdAt := fakerDateBetween(time.Now().AddDate(-2, 0, 0), time.Now())
-	user.CreatedAt = &createdAt
+	user.CreatedAt = createdAt
+	user.EmailVerifiedAt = nil
+	user.UpdatedAt = nil
+	user.DeletedAt = nil
 	return user
 }

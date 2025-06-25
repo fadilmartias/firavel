@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 
+	"github.com/fadilmartias/firavel/app/models"
 	"github.com/fadilmartias/firavel/bootstrap"
 	"github.com/fadilmartias/firavel/database/migrations"
 	"github.com/fadilmartias/firavel/database/seeders"
@@ -25,8 +26,11 @@ var dbMigrateCmd = &cobra.Command{
 		seed, _ := cmd.Flags().GetBool("seed")
 
 		for _, migration := range migrations.GetMigrations() {
-			fmt.Printf("Running migration: %s\n", migration.Name)
-			migration.Up(db)
+			if !migrations.HasMigrationRun(db, migration.Name) {
+				fmt.Printf("Running migration: %s\n", migration.Name)
+				migration.Up(db)
+				migrations.RecordMigration(db, migration.Name)
+			}
 		}
 
 		if seed {
@@ -41,9 +45,16 @@ var dbRollbackCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		db := bootstrap.ConnectDB()
 
+		var last models.SchemaMigration
+		db.Order("migrated_at DESC").First(&last)
+
 		for _, migration := range migrations.GetMigrations() {
-			fmt.Printf("Rolling back migration: %s\n", migration.Name)
-			migration.Down(db)
+			if migration.Name == last.Name {
+				fmt.Printf("Rolling back migration: %s\n", migration.Name)
+				migration.Down(db)
+				migrations.DeleteMigrationRecord(db, last.Name)
+				break
+			}
 		}
 	},
 }
@@ -57,13 +68,13 @@ var dbMigrateFreshCmd = &cobra.Command{
 		seed, _ := cmd.Flags().GetBool("seed")
 
 		for _, migration := range migrations.GetMigrations() {
-			fmt.Printf("Dropping table: %s\n", migration.Name)
 			migration.Down(db)
 		}
+		db.Exec("DELETE FROM schema_migrations")
 
 		for _, migration := range migrations.GetMigrations() {
-			fmt.Printf("Running migration: %s\n", migration.Name)
 			migration.Up(db)
+			migrations.RecordMigration(db, migration.Name)
 		}
 
 		if seed {
@@ -84,11 +95,42 @@ var dbSeedCmd = &cobra.Command{
 	},
 }
 
+var dbMigrateStatusCmd = &cobra.Command{
+	Use:   "migrate:status",
+	Short: "List all migrations and their status",
+	Run: func(cmd *cobra.Command, args []string) {
+		db := bootstrap.ConnectDB()
+		_ = db.AutoMigrate(&models.SchemaMigration{}) // pastikan table schema_migrations tersedia
+
+		applied := map[string]bool{}
+		var appliedMigrations []models.SchemaMigration
+		db.Find(&appliedMigrations)
+
+		for _, m := range appliedMigrations {
+			applied[m.Name] = true
+		}
+
+		fmt.Println("\nMIGRATION STATUS")
+		fmt.Println("──────────────────────────────")
+		fmt.Println(" Status  | Migration Name")
+		fmt.Println("─────────┼──────────────────────────────")
+
+		for _, migration := range migrations.GetMigrations() {
+			status := "Pending"
+			if applied[migration.Name] {
+				status = "✅ Ran"
+			}
+			fmt.Printf(" %-7s | %s\n", status, migration.Name)
+		}
+		fmt.Println("──────────────────────────────\n")
+	},
+}
+
 func init() {
 	dbCmd.AddCommand(dbMigrateCmd)
 	dbCmd.AddCommand(dbRollbackCmd)
-	dbCmd.AddCommand(dbMigrateFreshCmd) // Tambahkan perintah migrate:fresh
+	dbCmd.AddCommand(dbMigrateFreshCmd)
 	dbCmd.AddCommand(dbSeedCmd)
-
+	dbCmd.AddCommand(dbMigrateStatusCmd)
 	dbMigrateCmd.Flags().BoolP("seed", "s", false, "Seed the database after migration")
 }

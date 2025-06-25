@@ -67,6 +67,7 @@ func NewApp() *fiber.App {
 	app.Use(logger.FiberErrorLogger())
 	// Buat koneksi DB di sini
 	db := ConnectDB()
+	db.AutoMigrate(&models.SchemaMigration{})
 	redis := ConnectRedis()
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: os.Getenv("APP_ENV") != "production",

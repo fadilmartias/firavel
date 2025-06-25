@@ -19,6 +19,7 @@ func SeedUsers(db *gorm.DB, count int) {
 		Name:     "Admin",
 		Email:    "admin@gmail.com",
 		Password: "namakau123",
+		Role:     "admin",
 	}
 	if err := admin.HashPassword(admin.Password); err != nil {
 		log.Printf("Failed to hash password for admin: %v", err)
@@ -29,6 +30,7 @@ func SeedUsers(db *gorm.DB, count int) {
 		Name:     "User",
 		Email:    "user@gmail.com",
 		Password: "namakau123",
+		Role:     "user",
 	}
 	if err := user.HashPassword(user.Password); err != nil {
 		log.Printf("Failed to hash password for user: %v", err)
