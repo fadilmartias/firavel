@@ -21,7 +21,7 @@ type User struct {
 	DeletedAt       gorm.DeletedAt `gorm:"index"`
 }
 
-func generateShortID(length int) string {
+func GenerateID(length int) string {
 	const shortIDChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, length)
@@ -33,7 +33,7 @@ func generateShortID(length int) string {
 
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.ID == "" {
-		u.ID = generateShortID(7)
+		u.ID = GenerateID(7)
 	}
 
 	return

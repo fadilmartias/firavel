@@ -4,17 +4,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/fadilmartias/firavel/app/models"
 	"github.com/golang-jwt/jwt"
 )
 
-func GenerateToken(user *models.User) (string, error) {
+func GenerateToken(data map[string]any, exp time.Duration) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": user.ID,
-		"name":    user.Name,
-		"email":   user.Email,
-		"role":    user.Role,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+		"user_id": data["user_id"],
+		"name":    data["name"],
+		"email":   data["email"],
+		"role":    data["role"],
+		"exp":     time.Now().Add(exp).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))

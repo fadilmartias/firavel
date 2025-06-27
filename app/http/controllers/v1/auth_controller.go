@@ -1,8 +1,10 @@
 package controllers_v1
 
 import (
+	"os"
 	"time"
 
+	"github.com/fadilmartias/firavel/app/mail"
 	"github.com/fadilmartias/firavel/app/models"
 	"github.com/fadilmartias/firavel/app/requests"
 	"github.com/fadilmartias/firavel/app/utils"
@@ -58,7 +60,6 @@ func (ctrl *AuthController) Register(c *fiber.Ctx) error {
 	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
 		Code:    fiber.StatusCreated,
 		Message: "User created successfully",
-		Data:    input,
 	})
 }
 
@@ -108,7 +109,12 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 	}
 
 	// Buat token access dan refresh token
-	accessToken, err := utils.GenerateToken(&user)
+	accessToken, err := utils.GenerateToken(map[string]any{
+		"user_id": user.ID,
+		"name":    user.Name,
+		"email":   user.Email,
+		"role":    user.Role,
+	}, time.Hour*1)
 	if err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 			Code:       fiber.StatusInternalServerError,
@@ -118,7 +124,12 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	refreshToken, err := utils.GenerateToken(&user)
+	refreshToken, err := utils.GenerateToken(map[string]any{
+		"user_id": user.ID,
+		"name":    user.Name,
+		"email":   user.Email,
+		"role":    user.Role,
+	}, time.Hour*24)
 	if err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 			Code:       fiber.StatusInternalServerError,
@@ -131,8 +142,10 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 	refreshCookie := fiber.Cookie{
 		Name:     "refreshToken",
 		Value:    refreshToken,
-		Expires:  time.Now().AddDate(0, 0, 30),
+		Expires:  time.Now().Add(time.Hour * 24),
 		HTTPOnly: true,
+		SameSite: fiber.CookieSameSiteLaxMode,
+		Secure:   os.Getenv("APP_ENV") == "production",
 	}
 	c.Cookie(&refreshCookie)
 
@@ -163,5 +176,98 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 		Code:    fiber.StatusOK,
 		Message: "User logged in successfully",
 		Data:    response,
+	})
+}
+
+func (ctrl *AuthController) ForgotPassword(c *fiber.Ctx) error {
+	input, err := utils.GetValidatedBody[requests.ForgotPasswordInput](c)
+	if err != nil {
+		return err
+	}
+
+	var user = models.User{}
+	if err := ctrl.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusNotFound,
+			Message:    "User not found",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	// Generate random token
+	token := utils.GenerateShortID(32)
+	passwordResetToken := models.PasswordResetToken{
+		Email:     user.Email,
+		Token:     token,
+		ExpiredAt: time.Now().Add(time.Minute * 5),
+	}
+	passwordResetToken.HashToken(&token)
+	ctrl.DB.Create(&passwordResetToken)
+
+	// Send email
+	if err := mail.SendResetPasswordEmail(user.Email, token); err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Failed to send reset password email",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+		Code:    fiber.StatusOK,
+		Message: "Password reset token sent successfully",
+	})
+}
+
+func (ctrl *AuthController) ResetPassword(c *fiber.Ctx) error {
+	input, err := utils.GetValidatedBody[requests.ResetPasswordInput](c)
+	if err != nil {
+		return err
+	}
+
+	var passwordResetToken models.PasswordResetToken
+	if err := ctrl.DB.Where("token = ?", input.Token).First(&passwordResetToken).Error; err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusNotFound,
+			Message:    "Password reset token not found",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	if passwordResetToken.ExpiredAt.Before(time.Now()) {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusNotFound,
+			Message:    "Password reset token expired",
+			DevMessage: "Password reset token expired",
+			Details:    nil,
+		})
+	}
+
+	user := models.User{}
+	if err := ctrl.DB.Where("email = ?", passwordResetToken.Email).First(&user).Error; err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusNotFound,
+			Message:    "User not found",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	user.HashPassword(input.Password)
+	if err := ctrl.DB.Save(&user).Error; err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Failed to save user",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+		Code:    fiber.StatusOK,
+		Message: "Password reset successfully",
 	})
 }
