@@ -22,6 +22,7 @@ var dbMigrateCmd = &cobra.Command{
 	Short: "Run database migrations",
 	Run: func(cmd *cobra.Command, args []string) {
 		db := bootstrap.ConnectDB()
+		db.AutoMigrate(&models.SchemaMigration{})
 
 		seed, _ := cmd.Flags().GetBool("seed")
 
@@ -44,6 +45,7 @@ var dbRollbackCmd = &cobra.Command{
 	Short: "Rollback the last database migration",
 	Run: func(cmd *cobra.Command, args []string) {
 		db := bootstrap.ConnectDB()
+		db.AutoMigrate(&models.SchemaMigration{})
 
 		var last models.SchemaMigration
 		db.Order("migrated_at DESC").First(&last)
@@ -64,6 +66,7 @@ var dbMigrateFreshCmd = &cobra.Command{
 	Short: "Drop all tables and re-run all migrations",
 	Run: func(cmd *cobra.Command, args []string) {
 		db := bootstrap.ConnectDB()
+		db.AutoMigrate(&models.SchemaMigration{})
 
 		seed, _ := cmd.Flags().GetBool("seed")
 

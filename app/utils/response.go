@@ -1,6 +1,11 @@
 package utils
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"os"
+	"runtime/debug"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 type SuccessResponseFormat struct {
 	Code       int
@@ -11,23 +16,27 @@ type SuccessResponseFormat struct {
 }
 
 type OrderedSuccessResponse struct {
-	Success    bool   `json:"success"`
-	Message    string `json:"message"`
-	Meta       any    `json:"meta,omitempty"`
-	Pagination any    `json:"pagination,omitempty"`
-	Data       any    `json:"data,omitempty"`
+	Success    bool        `json:"success"`
+	Message    string      `json:"message"`
+	Meta       any         `json:"meta,omitempty"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+	Data       any         `json:"data,omitempty"`
 }
 
 type ErrorResponseFormat struct {
-	Code    int
-	Message string
-	Details any
+	Code       int
+	Message    string
+	DevMessage string
+	Details    any
+	Trace      string
 }
 
 type OrderedErrorResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Details any    `json:"details,omitempty"`
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	DevMessage string `json:"dev_message,omitempty"`
+	Details    any    `json:"details,omitempty"`
+	Trace      string `json:"trace,omitempty"`
 }
 
 // SuccessResponse mengirim response JSON standar untuk sukses
@@ -50,6 +59,12 @@ func ErrorResponse(c *fiber.Ctx, params ErrorResponseFormat) error {
 	}
 	if params.Details != nil {
 		response.Details = params.Details
+	}
+	if os.Getenv("APP_ENV") != "production" && params.DevMessage != "" {
+		response.DevMessage = params.DevMessage
+	}
+	if os.Getenv("APP_ENV") != "production" {
+		response.Trace = string(debug.Stack())
 	}
 	return c.Status(params.Code).JSON(response)
 }

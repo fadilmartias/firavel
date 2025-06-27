@@ -4,6 +4,7 @@ import (
 	controllers_v0 "github.com/fadilmartias/firavel/app/http/controllers/v0"
 	controllers_v1 "github.com/fadilmartias/firavel/app/http/controllers/v1"
 	"github.com/fadilmartias/firavel/app/http/middleware"
+	"github.com/fadilmartias/firavel/app/requests"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
@@ -31,8 +32,8 @@ func RegisterApiRoutes(app *fiber.App, db *gorm.DB, redis *redis.Client) {
 
 	authRoutes := apiV1.Group("/auth")
 	{
-		authRoutes.Post("/login", authController.Login).Name("auth.login")
-		authRoutes.Post("/register", authController.Register).Name("auth.register")
+		authRoutes.Post("/login", middleware.ValidateBody[requests.LoginInput](), authController.Login).Name("auth.login")
+		authRoutes.Post("/register", middleware.ValidateBody[requests.RegisterInput](), authController.Register).Name("auth.register")
 	}
 
 	userRoutes := apiV1.Group("/users", middleware.Auth(), middleware.Role([]string{"admin"}))

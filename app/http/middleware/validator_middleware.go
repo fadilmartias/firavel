@@ -14,11 +14,10 @@ func ValidateBody[T any]() fiber.Handler {
 
 		if err := c.BodyParser(&body); err != nil {
 			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-				Code:    fiber.StatusBadRequest,
-				Message: "Invalid request body",
-				Details: map[string]interface{}{
-					"error": err.Error(),
-				},
+				Code:       fiber.StatusBadRequest,
+				Message:    "Invalid request body",
+				DevMessage: err.Error(),
+				Details:    err,
 			})
 		}
 
@@ -28,8 +27,9 @@ func ValidateBody[T any]() fiber.Handler {
 				errs[e.Field()] = e.Tag()
 			}
 			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-				Code:    fiber.StatusUnprocessableEntity,
-				Message: "Invalid request body",
+				Code:       fiber.StatusUnprocessableEntity,
+				Message:    "Invalid request body",
+				DevMessage: err.Error(),
 				Details: map[string]interface{}{
 					"errors": errs,
 				},

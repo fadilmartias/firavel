@@ -9,11 +9,12 @@ import (
 )
 
 type User struct {
-	ID              string `gorm:"primarykey;size:7"`
-	Name            string `gorm:"not null;size:100" faker:"name"`
-	Email           string `gorm:"unique;not null;size:100" faker:"email"`
-	Password        string `gorm:"not null;size:100" faker:"password"`
-	Role            string `gorm:"type:enum('admin','user');default:'user';not null"`
+	ID              string  `gorm:"primarykey;size:7"`
+	Name            string  `gorm:"not null;size:100" faker:"name"`
+	Email           string  `gorm:"unique;not null;size:100" faker:"email"`
+	Password        string  `gorm:"not null;size:100" faker:"password"`
+	Role            string  `gorm:"type:enum('admin','user');default:'user';not null"`
+	RefreshToken    *string `gorm:"size:255"`
 	EmailVerifiedAt *time.Time
 	CreatedAt       time.Time `gorm:"not null"`
 	UpdatedAt       time.Time

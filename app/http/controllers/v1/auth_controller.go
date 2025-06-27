@@ -1,10 +1,11 @@
 package controllers_v1
 
 import (
-	"log"
+	"fmt"
 	"time"
 
 	"github.com/fadilmartias/firavel/app/models"
+	"github.com/fadilmartias/firavel/app/requests"
 	"github.com/fadilmartias/firavel/app/utils"
 
 	"github.com/go-redis/redis/v8"
@@ -26,107 +27,144 @@ func NewAuthController(db *gorm.DB, redis *redis.Client) *AuthController {
 
 // Register membuat user baru
 func (ctrl *AuthController) Register(c *fiber.Ctx) error {
-	user := new(models.User)
-
-	if err := c.BodyParser(user); err != nil {
-		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    fiber.StatusBadRequest,
-			Message: "Invalid request body",
-			Details: err.Error(),
-		})
+	input, err := utils.GetValidatedBody[requests.RegisterInput](c)
+	if err != nil {
+		return err
 	}
 
-	if err := user.HashPassword(user.Password); err != nil {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(input.Password), 14)
+	if err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    fiber.StatusInternalServerError,
-			Message: "Could not process password",
-			Details: nil,
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Could not process password",
+			DevMessage: err.Error(),
+			Details:    err,
 		})
 	}
+	input.Password = string(bytes)
 
-	if result := ctrl.DB.Create(user); result.Error != nil {
+	if result := ctrl.DB.Create(&models.User{
+		Name:     input.Name,
+		Email:    input.Email,
+		Password: input.Password,
+	}); result.Error != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    fiber.StatusConflict,
-			Message: "Could not create user",
-			Details: result.Error.Error(),
+			Code:       fiber.StatusConflict,
+			Message:    "Could not create user",
+			DevMessage: result.Error.Error(),
+			Details:    result.Error,
 		})
 	}
 
 	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
 		Code:    fiber.StatusCreated,
 		Message: "User created successfully",
-		Data:    user,
+		Data:    input,
 	})
+}
+
+type userResponse struct {
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Email           string     `json:"email"`
+	Role            string     `json:"role"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+type loginResponse struct {
+	User        userResponse `json:"user"`
+	AccessToken string       `json:"access_token"`
 }
 
 // Login placeholder
 func (ctrl *AuthController) Login(c *fiber.Ctx) error {
-	start := time.Now()
 
 	// Parse input dari body
-	type InputBody struct {
-		Credential string `json:"credential"`
-		Password   string `json:"password"`
+	input, err := utils.GetValidatedBody[requests.LoginInput](c)
+	if err != nil {
+		return err
 	}
-	var body InputBody
-	if err := c.BodyParser(&body); err != nil {
-		log.Println("⛔ BodyParser error:", err)
-		log.Println("⏱️ Durasi BodyParser:", time.Since(start))
-		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    fiber.StatusBadRequest,
-			Message: "Invalid request body",
-			Details: err.Error(),
-		})
-	}
-	log.Println("✅ BodyParser selesai:", time.Since(start))
+
+	fmt.Println(input)
 
 	// Cari user di DB berdasarkan email
 	var user models.User
-	dbStart := time.Now()
-	if err := ctrl.DB.Where("email = ?", body.Credential).First(&user).Error; err != nil {
-		log.Println("⛔ DB Query error:", err)
-		log.Println("⏱️ Durasi DB Query:", time.Since(dbStart))
-		log.Println("🕒 Total sampai DB:", time.Since(start))
+	if err := ctrl.DB.Where("email = ?", input.Credential).First(&user).Error; err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    fiber.StatusUnauthorized,
-			Message: "User not found",
+			Code:       fiber.StatusUnauthorized,
+			Message:    "User not found",
+			DevMessage: err.Error(),
+			Details:    err,
 		})
 	}
-	log.Println("✅ DB Query selesai:", time.Since(dbStart))
 
 	// Bandingkan password input dengan hash di DB
-	bcryptStart := time.Now()
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)); err != nil {
-		log.Println("⛔ Bcrypt compare error:", err)
-		log.Println("⏱️ Durasi Bcrypt:", time.Since(bcryptStart))
-		log.Println("🕒 Total sampai Bcrypt:", time.Since(start))
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    fiber.StatusUnauthorized,
-			Message: "Invalid email or password",
+			Code:       fiber.StatusUnauthorized,
+			Message:    "Invalid email or password",
+			DevMessage: err.Error(),
+			Details:    err,
 		})
 	}
-	log.Println("✅ Bcrypt compare selesai:", time.Since(bcryptStart))
 
-	// Buat token (JWT misalnya)
-	jwtStart := time.Now()
-	token, err := utils.GenerateToken(&user)
+	// Buat token access dan refresh token
+	accessToken, err := utils.GenerateToken(&user)
 	if err != nil {
-		log.Println("⛔ Token gen error:", err)
-		log.Println("⏱️ Durasi Token Gen:", time.Since(jwtStart))
-		log.Println("🕒 Total sampai Token:", time.Since(start))
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:    fiber.StatusInternalServerError,
-			Message: "Failed to generate token",
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Failed to generate access token",
+			DevMessage: err.Error(),
+			Details:    err,
 		})
 	}
-	log.Println("✅ Token gen selesai:", time.Since(jwtStart))
 
-	// Logging total durasi
-	log.Println("✅ Login berhasil | Total durasi login:", time.Since(start))
+	refreshToken, err := utils.GenerateToken(&user)
+	if err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Failed to generate refresh token",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	refreshCookie := fiber.Cookie{
+		Name:     "refreshToken",
+		Value:    refreshToken,
+		Expires:  time.Now().AddDate(0, 0, 30),
+		HTTPOnly: true,
+	}
+	c.Cookie(&refreshCookie)
+
+	user.RefreshToken = &refreshToken
+	if err := ctrl.DB.Save(&user).Error; err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Failed to save refresh token",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	response := loginResponse{
+		User: userResponse{
+			ID:              user.ID,
+			Name:            user.Name,
+			Email:           user.Email,
+			Role:            user.Role,
+			EmailVerifiedAt: user.EmailVerifiedAt,
+			CreatedAt:       user.CreatedAt,
+			UpdatedAt:       user.UpdatedAt,
+		},
+		AccessToken: accessToken,
+	}
 
 	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
 		Code:    fiber.StatusOK,
 		Message: "User logged in successfully",
-		Data:    fiber.Map{"token": token},
+		Data:    response,
 	})
 }
