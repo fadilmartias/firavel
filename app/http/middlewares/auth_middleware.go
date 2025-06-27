@@ -1,4 +1,4 @@
-package middleware
+package middlewares
 
 import (
 	"fmt"
@@ -9,8 +9,9 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-func Auth() fiber.Handler {
+func Auth(allowedRoles []string, allowedPermissions []string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+
 		token := c.Get("Authorization")
 
 		if token == "" {
@@ -21,31 +22,32 @@ func Auth() fiber.Handler {
 		}
 
 		token = token[7:] // Remove "Bearer " prefix
-
+		var claims jwt.MapClaims
+		var err error
 		// Bypass token
 		if token == "TestAdmin123" {
 			fmt.Println("✅ Bypass token")
 			// Simpan user langsung ke context
-			c.Locals("user", jwt.MapClaims{
-				"user_id": "00000A1",
-				"name":    "Admin",
-				"email":   "admin@gmail.com",
-				"role":    "admin",
-			})
+			claims = jwt.MapClaims{
+				"id":    "00000A1",
+				"name":  "Admin",
+				"email": "admin@gmail.com",
+				"role":  "admin",
+			}
 			return c.Next()
 		} else if token == "TestUser123" {
 			fmt.Println("✅ Bypass token")
 			// Simpan user langsung ke context
-			c.Locals("user", jwt.MapClaims{
-				"user_id": "00000A2",
-				"name":    "User",
-				"email":   "user@gmail.com",
-				"role":    "user",
-			})
-			return c.Next()
+			claims = jwt.MapClaims{
+				"id":    "00000A2",
+				"name":  "User",
+				"email": "user@gmail.com",
+				"role":  "user",
+			}
+		} else {
+			claims, err = utils.ValidateToken(token)
 		}
 
-		claims, err := utils.ValidateToken(token)
 		if err != nil {
 			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 				Code:    fiber.StatusUnauthorized,
@@ -53,20 +55,30 @@ func Auth() fiber.Handler {
 			})
 		}
 
-		if claims["user_id"] == nil {
+		if claims["id"] == nil {
 			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 				Code:    fiber.StatusUnauthorized,
 				Message: "Unauthorized: Invalid token",
 			})
 		}
 
-		userID := claims["user_id"].(string)
+		userID := claims["id"].(string)
 		if userID == "" {
 			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 				Code:    fiber.StatusUnauthorized,
 				Message: "Unauthorized: Invalid token",
 			})
 		}
+		if len(allowedRoles) > 0 {
+			role, ok := claims["role"].(string)
+			if !ok || !utils.SliceContains(allowedRoles, role) {
+				return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+					Code:    fiber.StatusForbidden,
+					Message: "Forbidden: Access denied",
+				})
+			}
+		}
+
 		c.Locals("user", claims)
 		return c.Next()
 	}

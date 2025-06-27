@@ -110,10 +110,10 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 
 	// Buat token access dan refresh token
 	accessToken, err := utils.GenerateToken(map[string]any{
-		"user_id": user.ID,
-		"name":    user.Name,
-		"email":   user.Email,
-		"role":    user.Role,
+		"id":    user.ID,
+		"name":  user.Name,
+		"email": user.Email,
+		"role":  user.Role,
 	}, time.Hour*1)
 	if err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
@@ -125,10 +125,10 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 	}
 
 	refreshToken, err := utils.GenerateToken(map[string]any{
-		"user_id": user.ID,
-		"name":    user.Name,
-		"email":   user.Email,
-		"role":    user.Role,
+		"id":    user.ID,
+		"name":  user.Name,
+		"email": user.Email,
+		"role":  user.Role,
 	}, time.Hour*24)
 	if err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{

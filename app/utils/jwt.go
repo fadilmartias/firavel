@@ -9,11 +9,11 @@ import (
 
 func GenerateToken(data map[string]any, exp time.Duration) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": data["user_id"],
-		"name":    data["name"],
-		"email":   data["email"],
-		"role":    data["role"],
-		"exp":     time.Now().Add(exp).Unix(),
+		"id":    data["id"],
+		"name":  data["name"],
+		"email": data["email"],
+		"role":  data["role"],
+		"exp":   time.Now().Add(exp).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
