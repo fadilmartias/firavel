@@ -1,7 +1,6 @@
 package controllers_v1
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/fadilmartias/firavel/app/models"
@@ -86,8 +85,6 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println(input)
 
 	// Cari user di DB berdasarkan email
 	var user models.User
