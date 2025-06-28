@@ -32,6 +32,7 @@ func Auth(allowedRoles []string, allowedPermissions []string) fiber.Handler {
 				"id":    "00000A1",
 				"name":  "Admin",
 				"email": "admin@gmail.com",
+				"phone": "08123456789",
 				"role":  "admin",
 			}
 			return c.Next()
@@ -42,6 +43,7 @@ func Auth(allowedRoles []string, allowedPermissions []string) fiber.Handler {
 				"id":    "00000A2",
 				"name":  "User",
 				"email": "user@gmail.com",
+				"phone": "08123456789",
 				"role":  "user",
 			}
 		} else {

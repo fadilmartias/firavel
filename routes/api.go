@@ -36,6 +36,8 @@ func RegisterApiRoutes(app *fiber.App, db *gorm.DB, redis *redis.Client) {
 		authRoutes.Post("/register", middlewares.Guest(), middlewares.ValidateBody[requests.RegisterInput](), authController.Register).Name("auth.register")
 		authRoutes.Post("/forgot-password", middlewares.Guest(), middlewares.ValidateBody[requests.ForgotPasswordInput](), authController.ForgotPassword).Name("auth.forgot-password")
 		authRoutes.Post("/reset-password", middlewares.Guest(), middlewares.ValidateBody[requests.ResetPasswordInput](), authController.ResetPassword).Name("auth.reset-password")
+		authRoutes.Post("/verify-email", middlewares.Auth([]string{}, []string{}), middlewares.ValidateBody[requests.VerifyEmailInput](), authController.VerifyEmail).Name("auth.verify-email")
+		authRoutes.Post("/send-email-verification", middlewares.Auth([]string{}, []string{}), authController.SendEmailVerification).Name("auth.send-email-verification")
 	}
 
 	userRoutes := apiV1.Group("/users", middlewares.Auth([]string{"admin"}, []string{}))

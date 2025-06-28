@@ -8,13 +8,8 @@ import (
 )
 
 func GenerateToken(data map[string]any, exp time.Duration) (string, error) {
-	claims := jwt.MapClaims{
-		"id":    data["id"],
-		"name":  data["name"],
-		"email": data["email"],
-		"role":  data["role"],
-		"exp":   time.Now().Add(exp).Unix(),
-	}
+	claims := jwt.MapClaims(data)
+	claims["exp"] = time.Now().Add(exp).Unix()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 }

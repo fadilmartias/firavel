@@ -1,6 +1,7 @@
 package controllers_v1
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -47,6 +48,7 @@ func (ctrl *AuthController) Register(c *fiber.Ctx) error {
 	if result := ctrl.DB.Create(&models.User{
 		Name:     input.Name,
 		Email:    input.Email,
+		Phone:    input.Phone,
 		Password: input.Password,
 	}); result.Error != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
@@ -67,6 +69,7 @@ type userResponse struct {
 	ID              string     `json:"id"`
 	Name            string     `json:"name"`
 	Email           string     `json:"email"`
+	Phone           string     `json:"phone"`
 	Role            string     `json:"role"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
@@ -112,6 +115,7 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 	accessToken, err := utils.GenerateToken(map[string]any{
 		"id":    user.ID,
 		"name":  user.Name,
+		"phone": user.Phone,
 		"email": user.Email,
 		"role":  user.Role,
 	}, time.Hour*1)
@@ -127,6 +131,7 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 	refreshToken, err := utils.GenerateToken(map[string]any{
 		"id":    user.ID,
 		"name":  user.Name,
+		"phone": user.Phone,
 		"email": user.Email,
 		"role":  user.Role,
 	}, time.Hour*24)
@@ -163,6 +168,7 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 		User: userResponse{
 			ID:              user.ID,
 			Name:            user.Name,
+			Phone:           user.Phone,
 			Email:           user.Email,
 			Role:            user.Role,
 			EmailVerifiedAt: user.EmailVerifiedAt,
@@ -186,6 +192,7 @@ func (ctrl *AuthController) ForgotPassword(c *fiber.Ctx) error {
 	}
 
 	var user = models.User{}
+	var passwordResetToken models.PasswordResetToken
 	if err := ctrl.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 			Code:       fiber.StatusNotFound,
@@ -195,15 +202,21 @@ func (ctrl *AuthController) ForgotPassword(c *fiber.Ctx) error {
 		})
 	}
 
-	// Generate random token
-	token := utils.GenerateShortID(32)
-	passwordResetToken := models.PasswordResetToken{
-		Email:     user.Email,
-		Token:     token,
-		ExpiredAt: time.Now().Add(time.Minute * 5),
+	if err := ctrl.DB.Where("email = ?", input.Email).Where("expired_at > ?", time.Now()).First(&passwordResetToken).Error; err == nil {
+		return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+			Code:    fiber.StatusOK,
+			Message: "Password reset token already sent",
+		})
 	}
-	passwordResetToken.HashToken(&token)
-	ctrl.DB.Create(&passwordResetToken)
+
+	// Generate random token
+	token := utils.GenerateRandomToken(32)
+	tokenHash := utils.HashToken(token)
+
+	passwordResetToken.Email = user.Email
+	passwordResetToken.Token = tokenHash
+	passwordResetToken.ExpiredAt = time.Now().Add(time.Minute * 5)
+	ctrl.DB.Save(&passwordResetToken)
 
 	// Send email
 	if err := mail.SendResetPasswordEmail(user.Email, token); err != nil {
@@ -226,9 +239,9 @@ func (ctrl *AuthController) ResetPassword(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
+	tokenHash := utils.HashToken(input.Token)
 	var passwordResetToken models.PasswordResetToken
-	if err := ctrl.DB.Where("token = ?", input.Token).First(&passwordResetToken).Error; err != nil {
+	if err := ctrl.DB.Where("token = ?", tokenHash).First(&passwordResetToken).Error; err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 			Code:       fiber.StatusNotFound,
 			Message:    "Password reset token not found",
@@ -269,5 +282,106 @@ func (ctrl *AuthController) ResetPassword(c *fiber.Ctx) error {
 	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
 		Code:    fiber.StatusOK,
 		Message: "Password reset successfully",
+	})
+}
+
+func (ctrl *AuthController) SendEmailVerification(c *fiber.Ctx) error {
+	id := c.Locals("user").(models.User).ID
+	var user models.User
+	if err := ctrl.DB.First(&user, id).Error; err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:    fiber.StatusNotFound,
+			Message: "User not found",
+			Details: nil,
+		})
+	}
+	if user.EmailVerifiedAt != nil {
+		return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+			Code:    fiber.StatusOK,
+			Message: "Email already verified",
+		})
+	}
+	_, err := ctrl.Redis.Get(c.UserContext(), fmt.Sprintf("email_verification_token:%s", user.Email)).Result()
+	if err == nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:    fiber.StatusConflict,
+			Message: "Email verification already sent",
+		})
+	}
+
+	jwtToken, _ := utils.GenerateToken(map[string]any{
+		"email": user.Email,
+	}, time.Minute*5)
+
+	if err := ctrl.Redis.SetEX(c.UserContext(), fmt.Sprintf("email_verification_token:%s", user.Email), jwtToken, time.Minute*5).Err(); err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Failed to save email verification token",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	// Send email
+	if err := mail.SendEmailVerificationEmail(user.Email, jwtToken); err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Failed to send email verification",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+		Code:    fiber.StatusOK,
+		Message: "Email verification sent successfully",
+	})
+}
+
+func (ctrl *AuthController) VerifyEmail(c *fiber.Ctx) error {
+	input, err := utils.GetValidatedBody[requests.VerifyEmailInput](c)
+	if err != nil {
+		return err
+	}
+	token := input.Token
+	if token == "" {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:    fiber.StatusUnauthorized,
+			Message: "Missing token",
+		})
+	}
+
+	claims, err := utils.ValidateToken(token)
+	if err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusUnauthorized,
+			Message:    "Invalid token",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+
+	user := models.User{}
+	if err := ctrl.DB.Where("email = ?", claims["email"]).First(&user).Error; err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusNotFound,
+			Message:    "User not found",
+			DevMessage: err.Error(),
+			Details:    err,
+		})
+	}
+	emailVerifiedAt := time.Now()
+	user.EmailVerifiedAt = &emailVerifiedAt
+	if result := ctrl.DB.Save(&user); result.Error != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Failed to save user",
+			DevMessage: result.Error.Error(),
+			Details:    result.Error,
+		})
+	}
+	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+		Code:    fiber.StatusOK,
+		Message: "Email verified successfully",
 	})
 }
