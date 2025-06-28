@@ -35,7 +35,6 @@ func Auth(allowedRoles []string, allowedPermissions []string) fiber.Handler {
 				"phone": "08123456789",
 				"role":  "admin",
 			}
-			return c.Next()
 		} else if token == "TestUser123" {
 			fmt.Println("✅ Bypass token")
 			// Simpan user langsung ke context
@@ -43,7 +42,7 @@ func Auth(allowedRoles []string, allowedPermissions []string) fiber.Handler {
 				"id":    "00000A2",
 				"name":  "User",
 				"email": "user@gmail.com",
-				"phone": "08123456789",
+				"phone": "08123456780",
 				"role":  "user",
 			}
 		} else {
@@ -80,7 +79,6 @@ func Auth(allowedRoles []string, allowedPermissions []string) fiber.Handler {
 				})
 			}
 		}
-
 		c.Locals("user", claims)
 		return c.Next()
 	}

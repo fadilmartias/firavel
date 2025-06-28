@@ -12,7 +12,7 @@ type User struct {
 	ID              string  `gorm:"primarykey;size:7"`
 	Name            string  `gorm:"not null;size:100" faker:"name"`
 	Email           string  `gorm:"unique;not null;size:100" faker:"email"`
-	Phone           string  `gorm:"unique;not null;size:15" faker:"phone_number"`
+	Phone           string  `gorm:"unique;not null;size:15"`
 	Password        string  `gorm:"not null;size:100" faker:"password"`
 	Role            string  `gorm:"type:enum('admin','user');default:'user';not null"`
 	RefreshToken    *string `gorm:"size:255"`

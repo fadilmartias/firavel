@@ -9,6 +9,7 @@ import (
 	"github.com/fadilmartias/firavel/app/models"
 	"github.com/fadilmartias/firavel/app/requests"
 	"github.com/fadilmartias/firavel/app/utils"
+	"github.com/golang-jwt/jwt"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
@@ -250,12 +251,11 @@ func (ctrl *AuthController) ResetPassword(c *fiber.Ctx) error {
 		})
 	}
 
-	if passwordResetToken.ExpiredAt.Before(time.Now()) {
+	if passwordResetToken.UsedAt != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
-			Code:       fiber.StatusNotFound,
-			Message:    "Password reset token expired",
-			DevMessage: "Password reset token expired",
-			Details:    nil,
+			Code:    fiber.StatusConflict,
+			Message: "Password reset token already used",
+			Details: nil,
 		})
 	}
 
@@ -279,6 +279,11 @@ func (ctrl *AuthController) ResetPassword(c *fiber.Ctx) error {
 		})
 	}
 
+	now := time.Now()
+
+	passwordResetToken.UsedAt = &now
+	ctrl.DB.Save(&passwordResetToken)
+
 	return utils.SuccessResponse(c, utils.SuccessResponseFormat{
 		Code:    fiber.StatusOK,
 		Message: "Password reset successfully",
@@ -286,9 +291,9 @@ func (ctrl *AuthController) ResetPassword(c *fiber.Ctx) error {
 }
 
 func (ctrl *AuthController) SendEmailVerification(c *fiber.Ctx) error {
-	id := c.Locals("user").(models.User).ID
+	id := c.Locals("user").(jwt.MapClaims)["id"].(string)
 	var user models.User
-	if err := ctrl.DB.First(&user, id).Error; err != nil {
+	if err := ctrl.DB.Where("id = ?", id).First(&user).Error; err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 			Code:    fiber.StatusNotFound,
 			Message: "User not found",
@@ -368,6 +373,12 @@ func (ctrl *AuthController) VerifyEmail(c *fiber.Ctx) error {
 			Message:    "User not found",
 			DevMessage: err.Error(),
 			Details:    err,
+		})
+	}
+	if user.EmailVerifiedAt != nil {
+		return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+			Code:    fiber.StatusOK,
+			Message: "Email already verified",
 		})
 	}
 	emailVerifiedAt := time.Now()

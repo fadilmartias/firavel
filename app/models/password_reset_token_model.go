@@ -12,6 +12,7 @@ type PasswordResetToken struct {
 	Email     string    `gorm:"not null;size:100" faker:"email"`
 	Token     string    `gorm:"not null;size:255" faker:"password"`
 	ExpiredAt time.Time `gorm:"not null" faker:"date"`
+	UsedAt    *time.Time
 	CreatedAt time.Time `gorm:"not null"`
 	UpdatedAt time.Time
 }

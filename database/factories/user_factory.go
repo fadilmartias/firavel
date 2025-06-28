@@ -1,6 +1,7 @@
 package factories
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 
@@ -19,6 +20,7 @@ import (
 
 // NewUser membuat instance User baru dengan data palsu tanpa menyimpannya.
 func NewUser() models.User {
+
 	var user models.User
 	err := faker.FakeData(&user)
 	if err != nil {
@@ -26,6 +28,7 @@ func NewUser() models.User {
 	}
 	// Password tidak di-hash di sini, seeder yang akan melakukannya
 	user.ID = utils.GenerateShortID(7)
+	user.Phone = "08" + fmt.Sprintf("%d", utils.GenerateRandomNumber(9))
 	roles := []string{"admin", "user"}
 	user.Role = roles[rand.Intn(len(roles))]
 	user.Password = "password"

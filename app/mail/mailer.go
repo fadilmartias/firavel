@@ -11,7 +11,7 @@ import (
 
 func SendResetPasswordEmail(to string, token string) error {
 	mailConfig := config.LoadMailConfig()
-	tmpl, err := template.ParseFiles("../../templates/email/reset_password.html")
+	tmpl, err := template.ParseFiles("templates/email/reset_password.html")
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func SendResetPasswordEmail(to string, token string) error {
 
 func SendEmailVerificationEmail(to string, token string) error {
 	mailConfig := config.LoadMailConfig()
-	tmpl, err := template.ParseFiles("../../templates/email/verification_email.html")
+	tmpl, err := template.ParseFiles("templates/email/verification_email.html")
 	if err != nil {
 		return err
 	}

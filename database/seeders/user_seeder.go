@@ -18,6 +18,7 @@ func SeedUsers(db *gorm.DB, count int) {
 		ID:       "00000A1",
 		Name:     "Admin",
 		Email:    "admin@gmail.com",
+		Phone:    "08123456789",
 		Password: "namakau123",
 		Role:     "admin",
 	}
@@ -29,6 +30,7 @@ func SeedUsers(db *gorm.DB, count int) {
 		ID:       "00000A2",
 		Name:     "User",
 		Email:    "user@gmail.com",
+		Phone:    "08123456780",
 		Password: "namakau123",
 		Role:     "user",
 	}

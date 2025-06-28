@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math"
 	"math/rand"
 	"time"
 )
@@ -16,4 +17,9 @@ func GenerateShortID(length int) string {
 		b[i] = shortIDChars[seededRand.Intn(len(shortIDChars))]
 	}
 	return string(b)
+}
+
+func GenerateRandomNumber(length int) int {
+	max := int(math.Pow10(length))
+	return seededRand.Intn(max) + 1
 }
