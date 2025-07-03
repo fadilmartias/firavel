@@ -1,6 +1,7 @@
-package logger
+package middlewares
 
 import (
+	"github.com/fadilmartias/firavel/app/logger"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -9,7 +10,7 @@ func FiberErrorLogger() fiber.Handler {
 		err := c.Next()
 
 		if err != nil {
-			Errorf("Fiber error: %v | Path: %s | IP: %s", err, c.Path(), c.IP())
+			logger.Errorf("Fiber error: %v | Path: %s | IP: %s", err, c.Path(), c.IP())
 			// Fiber default error handler
 			return fiber.DefaultErrorHandler(c, err)
 		}
