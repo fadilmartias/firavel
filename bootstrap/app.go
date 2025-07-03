@@ -25,6 +25,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/idempotency"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
+	fLogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
@@ -65,6 +66,7 @@ func NewApp() *fiber.App {
 		},
 	})
 	app.Use(logger.FiberErrorLogger())
+	app.Use(fLogger.New())
 	// Buat koneksi DB di sini
 	db := ConnectDB()
 	redis := ConnectRedis()

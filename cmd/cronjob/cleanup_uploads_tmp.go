@@ -2,10 +2,11 @@ package cronjob
 
 import (
 	"fmt"
-	"github.com/robfig/cron/v3"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/robfig/cron/v3"
 )
 
 func StartCronJob() {
@@ -21,7 +22,7 @@ func StartCronJob() {
 }
 
 func cleanupTmpFolder() {
-	tmpDir := "../../public/uploads/tmp"
+	tmpDir := "/public/uploads/tmp"
 	exclude := map[string]bool{
 		"images": true,
 		"docs":   true,
