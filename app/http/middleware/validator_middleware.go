@@ -1,4 +1,4 @@
-package middlewares
+package middleware
 
 import (
 	"reflect"
@@ -37,7 +37,7 @@ func indexComma(s string) int {
 	return -1
 }
 
-func ValidateBody[T any]() fiber.Handler {
+func Validator[T any]() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var body T
 

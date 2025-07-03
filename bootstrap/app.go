@@ -8,7 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/fadilmartias/firavel/app/http/middleware/logger"
+	"github.com/fadilmartias/firavel/app/http/middleware"
+	"github.com/fadilmartias/firavel/app/logger"
 	"github.com/fadilmartias/firavel/app/models"
 	"github.com/fadilmartias/firavel/app/utils"
 	"github.com/fadilmartias/firavel/cmd/cronjob"
@@ -65,7 +66,7 @@ func NewApp() *fiber.App {
 			})
 		},
 	})
-	app.Use(logger.LoggerMiddleware())
+	app.Use(middleware.Logger())
 	app.Use(fLogger.New())
 	// Buat koneksi DB di sini
 	db := ConnectDB()
