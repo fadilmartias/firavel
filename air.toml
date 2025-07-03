@@ -7,9 +7,7 @@ tmp_dir = "tmp"
 
 [build]
 # Perintah untuk menjalankan aplikasi Anda.
-# Kita akan menggunakan "artisan serve" yang sudah kita buat.
-# Ini lebih konsisten dengan ekosistem Laravel.
-cmd = "go run ./cmd/artisan/main.go serve"
+cmd = "go run ./cmd/main.go serve"
 
 # Binary yang akan dijalankan. Air akan menjalankan perintah di `cmd`.
 # Jadi kita bisa kosongkan ini atau arahkan ke hasil build jika menggunakan `go build`.
@@ -26,7 +24,7 @@ include_ext = ["go", "tpl", "toml"]
 
 # Direktori yang TIDAK akan dipantau.
 # Penting untuk mengecualikan `tmp` agar tidak terjadi loop tak terbatas.
-exclude_dir = ["tmp", "vendor", "public", "storage"]
+exclude_dir = ["tmp", "storage"]
 
 # File atau direktori yang akan dipantau secara spesifik.
 # Jika kosong, akan memantau semua di `root`.
