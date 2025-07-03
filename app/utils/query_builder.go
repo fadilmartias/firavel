@@ -137,6 +137,7 @@ func applyFilters(db *gorm.DB, filters url.Values) *gorm.DB {
 		opMap := map[string]string{
 			"eq": "=", "neq": "!=", "gt": ">", "gte": ">=",
 			"lt": "<", "lte": "<=", "like": "LIKE", "ilike": "ILIKE",
+			"in": "IN", "notin": "NOT IN",
 		}
 
 		sqlOp, isValidOp := opMap[strings.ToLower(operator)]
@@ -160,6 +161,12 @@ func applyFilters(db *gorm.DB, filters url.Values) *gorm.DB {
 		// Untuk operator LIKE, tambahkan wildcard '%'
 		if sqlOp == "LIKE" || sqlOp == "ILIKE" {
 			queryValue = "%" + value + "%"
+		}
+
+		if sqlOp == "IN" || sqlOp == "NOT IN" {
+			values := strings.Split(value, ",")
+			db = db.Where(fmt.Sprintf("%s %s (?)", field, sqlOp), values)
+			continue
 		}
 
 		// Terapkan kondisi Where
@@ -233,6 +240,7 @@ func applySelectsAndPreloads(db *gorm.DB, fields []string, joins []string) *gorm
 
 // applyOrders menerapkan klausa ORDER BY.
 func applyOrders(db *gorm.DB, orders []string) *gorm.DB {
+	addedJoins := make(map[string]bool)
 	for _, orderItem := range orders {
 		parts := strings.Split(orderItem, ":")
 		field := parts[0]
@@ -240,9 +248,21 @@ func applyOrders(db *gorm.DB, orders []string) *gorm.DB {
 		if len(parts) > 1 && strings.ToLower(parts[1]) == "desc" {
 			direction = "DESC"
 		}
+
 		// Penting: Sama seperti filter, order pada relasi butuh nama tabel.
 		// Contoh: orders=users.name:desc
-		db = db.Order(fmt.Sprintf("%s %s", field, direction))
+		if strings.Contains(field, ".") {
+			parts := strings.SplitN(field, ".", 2)
+			relationName := strings.Title(parts[0]) // users.name -> User
+			fieldName := parts[1]
+			if _, exists := addedJoins[relationName]; !exists {
+				db = db.Joins(relationName)
+				addedJoins[relationName] = true
+			}
+			db = db.Order(fmt.Sprintf("%s.%s %s", relationName, fieldName, direction))
+		} else {
+			db = db.Order(fmt.Sprintf("%s %s", field, direction))
+		}
 	}
 	return db
 }
