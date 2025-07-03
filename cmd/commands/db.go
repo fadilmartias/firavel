@@ -125,7 +125,7 @@ var dbMigrateStatusCmd = &cobra.Command{
 			}
 			fmt.Printf(" %-7s | %s\n", status, migration.Name)
 		}
-		fmt.Println("──────────────────────────────\n")
+		fmt.Println("──────────────────────────────")
 	},
 }
 
