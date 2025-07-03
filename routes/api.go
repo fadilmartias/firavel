@@ -3,7 +3,7 @@ package routes
 import (
 	controllers_v0 "github.com/fadilmartias/firavel/app/http/controllers/v0"
 	controllers_v1 "github.com/fadilmartias/firavel/app/http/controllers/v1"
-	"github.com/fadilmartias/firavel/app/http/middlewares"
+	middlewares "github.com/fadilmartias/firavel/app/http/middleware"
 	"github.com/fadilmartias/firavel/app/requests"
 
 	"github.com/go-redis/redis/v8"
