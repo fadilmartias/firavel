@@ -66,7 +66,7 @@ func NewApp() *fiber.App {
 			})
 		},
 	})
-	app.Use(middlewares.FiberErrorLogger())
+	app.Use(middlewares.LoggerMiddleware())
 	app.Use(fLogger.New())
 	// Buat koneksi DB di sini
 	db := ConnectDB()

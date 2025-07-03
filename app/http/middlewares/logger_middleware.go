@@ -5,7 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func FiberErrorLogger() fiber.Handler {
+func LoggerMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		err := c.Next()
 
