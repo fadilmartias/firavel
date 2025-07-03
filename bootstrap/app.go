@@ -23,23 +23,32 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/etag"
+	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
-	"github.com/gofiber/fiber/v2/middleware/idempotency"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	fLogger "github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
+	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
+
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 func NewApp() *fiber.App {
+
+	// Init logger
 	logger.Init()
+
+	// Load .env file
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Warning: Could not load .env file")
+		logger.Error("Could not load .env file")
 	}
 
+	// Create app
 	app := fiber.New(fiber.Config{
 		AppName:     os.Getenv("APP_NAME"),
 		JSONEncoder: sonic.Marshal,
@@ -66,17 +75,25 @@ func NewApp() *fiber.App {
 			})
 		},
 	})
+
+	// Logger middleware
 	app.Use(middleware.Logger())
 	app.Use(fLogger.New())
-	// Buat koneksi DB di sini
+
+	// DB connection
 	db := ConnectDB()
+	logger.Info("Database connection established")
+
+	// Redis connection
 	redis := ConnectRedis()
+	logger.Info("Redis connection established")
+
+	// Use middleware
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: os.Getenv("APP_ENV") != "production",
 	}))
 	app.Use(etag.New())
 	app.Use(helmet.New())
-	app.Use(idempotency.New())
 	app.Use(limiter.New(limiter.Config{
 		Next: func(c *fiber.Ctx) bool {
 			return c.IP() == "127.0.0.1"
@@ -87,18 +104,35 @@ func NewApp() *fiber.App {
 			return c.Get("x-forwarded-for")
 		},
 		LimitReached: func(c *fiber.Ctx) error {
-			return c.SendStatus(fiber.StatusTooManyRequests)
+			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+				Code:    fiber.StatusTooManyRequests,
+				Message: "Too many requests",
+			})
 		},
 		LimiterMiddleware: limiter.SlidingWindow{},
 	}))
-	app.Use(cors.New())
+	app.Use(cors.New(cors.Config{
+		Next: func(c *fiber.Ctx) bool {
+			return c.Get("x-forwarded-for") == "127.0.0.1"
+		},
+		AllowOrigins: "*",
+		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+	}))
 	app.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed, // 1
 	}))
+	app.Use(pprof.New(pprof.Config{
+		Next: func(c *fiber.Ctx) bool {
+			return os.Getenv("APP_ENV") != "production"
+		},
+	}))
+	app.Use(healthcheck.New())
+	app.Use(requestid.New())
 	app.Static("/", "./public") // Static file
+	app.Get("/metrics", monitor.New(monitor.Config{Title: "Firavel Metrics Page"}))
 	cronjob.StartCronJob()
 
-	// Daftarkan Rute dan berikan (suntikkan) koneksi DB
+	// Register routes
 	routes.RegisterApiRoutes(app, db, redis)
 	routes.RegisterWebsocketRoutes(app) // Asumsi rute websocket tidak butuh DB, jika butuh, ubah juga
 
@@ -108,7 +142,7 @@ func NewApp() *fiber.App {
 func ConnectDB() *gorm.DB {
 	dbConfig := config.LoadDBConfig()
 
-	// UBAH FORMAT DSN UNTUK MYSQL
+	// Format DSN untuk MySQL
 	// format: "user:password@tcp(host:port)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		dbConfig.User,
@@ -120,7 +154,7 @@ func ConnectDB() *gorm.DB {
 
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Could not connect to database: %v", err)
 	}
 	return db
 }
