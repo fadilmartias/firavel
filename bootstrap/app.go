@@ -12,8 +12,8 @@ import (
 	"github.com/fadilmartias/firavel/app/logger"
 	"github.com/fadilmartias/firavel/app/models"
 	"github.com/fadilmartias/firavel/app/utils"
-	"github.com/fadilmartias/firavel/cmd/cronjob"
 	"github.com/fadilmartias/firavel/config"
+	"github.com/fadilmartias/firavel/cronjob"
 	"github.com/fadilmartias/firavel/routes"
 
 	"github.com/bytedance/sonic"

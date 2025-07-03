@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/fadilmartias/firavel/cmd/artisan/commands"
+	"github.com/fadilmartias/firavel/cmd/commands"
 
 	"github.com/joho/godotenv"
 )
