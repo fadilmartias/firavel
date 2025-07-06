@@ -19,7 +19,6 @@ func New{{.Name}}() models.{{.Name}} {
 	}
 	// Optional: set default values
 	// item.Password = "password"
-	item.CreatedAt = fakerDateBetween(time.Now().AddDate(-2, 0, 0), time.Now())
 	return item
 }
 `

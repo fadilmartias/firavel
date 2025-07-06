@@ -7,7 +7,7 @@ import (
 )
 
 type {{.Name}} struct {
-	ID              string     ` + "`gorm:\"primarykey;not null;size:7\" json:\"id,omitempty\"`" + `
-	CreatedAt       time.Time  ` + "`gorm:\"type:timestamp;default:CURRENT_TIMESTAMP\" json:\"created_at,omitempty\"`" + `
-	UpdatedAt       *time.Time ` + "`gorm:\"type:timestamp;default:NULL ON UPDATE CURRENT_TIMESTAMP\" json:\"updated_at,omitempty\"`" + `
+	ID              string     ` + "`gorm:\"primarykey;size:7\"`" + `
+	CreatedAt       time.Time  ` + "`gorm:\"not null\"`" + `
+	UpdatedAt       time.Time
 }`
