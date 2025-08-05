@@ -76,7 +76,7 @@ func resolveType(expr ast.Expr) string {
 	case *ast.SelectorExpr:
 		return resolveType(t.X) + "." + t.Sel.Name
 	default:
-		return "interface{}"
+		return "any"
 	}
 }
 

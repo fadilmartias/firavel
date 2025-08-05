@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/url"
 	"reflect"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fadilmartias/firavel/app/responses"
+	"github.com/fadilmartias/firavel/config"
 	"github.com/go-redis/redis/v8" // atau v9
 	"github.com/jinzhu/copier"
 	"gorm.io/gorm"
@@ -91,7 +93,6 @@ func BuildGormQuery(db *gorm.DB, query url.Values, isSingle bool) *gorm.DB {
 	db = applySelectsAndPreloads(db, params.Fields, params.Joins)
 	db = applyOrders(db, params.Orders)
 	db = applyGroups(db, params.Groups)
-	db = applyPagination(db, params.Limit, params.Page, isSingle)
 
 	return db
 }
@@ -146,7 +147,7 @@ func applyFilters(db *gorm.DB, filters url.Values) *gorm.DB {
 		}
 
 		// Handle nilai 'null'
-		var queryValue interface{}
+		var queryValue any
 		if strings.ToLower(value) == "null" {
 			if sqlOp == "=" {
 				db = db.Where(fmt.Sprintf("%s IS NULL", field))
@@ -301,6 +302,9 @@ type Pagination struct {
 	PageSize   int   `json:"page_size"`
 	TotalPages int64 `json:"total_pages"`
 	TotalItems int64 `json:"total_items"`
+	HasMore    bool  `json:"has_more"`
+	From       int   `json:"from"`
+	To         int   `json:"to"`
 }
 
 // PaginatedResponse adalah struktur untuk data dengan paginasi (isSingle = false).
@@ -327,6 +331,9 @@ func buildPagination(totalItems int64, params *QueryParams) Pagination {
 		PageSize:   params.Limit,
 		TotalPages: totalPages,
 		TotalItems: totalItems,
+		HasMore:    params.Page < int(totalPages),
+		From:       (params.Page-1)*params.Limit + 1,
+		To:         int(math.Min(float64(params.Page*params.Limit), float64(totalItems))),
 	}
 }
 
@@ -335,7 +342,7 @@ func buildPagination(totalItems int64, params *QueryParams) Pagination {
  * Fungsi ini generik dan dapat bekerja dengan model GORM apa pun.
  *
  * @template T - Tipe struct model GORM (misal: User, Post).
- * @param {*redis.Client} redisClient - Instance klien Redis yang aktif.
+ * @param {*config.RedisClient} redisClient - Instance klien Redis yang aktif.
  * @param {*gorm.DB} db - Instance kueri GORM yang sudah dibangun (oleh BuildGormQuery).
  * @param {*QueryParams} params - Parameter query yang sudah diparsing, diperlukan untuk paginasi.
  * @param {string} cacheKey - Kunci unik untuk caching di Redis. Jika string kosong, caching dilewati.
@@ -345,7 +352,7 @@ func buildPagination(totalItems int64, params *QueryParams) Pagination {
  */
 func FetchAndCacheDynamic(
 	ctx context.Context,
-	redisClient *redis.Client,
+	redisClient *config.RedisClient,
 	db *gorm.DB,
 	params *QueryParams,
 	cacheKey string,
@@ -359,7 +366,6 @@ func FetchAndCacheDynamic(
 
 	// Coba ambil response type dari registry, fallback ke model
 	responseType, ok := responses.Get(modelType.Name())
-	fmt.Println("📦 Using responseType for", modelType.Name(), ":", responseType.Name())
 
 	if !ok {
 		responseType = modelType
@@ -367,7 +373,7 @@ func FetchAndCacheDynamic(
 
 	// ================== 1. Coba Ambil dari Cache ==================
 	if cacheKey != "" {
-		cachedData, err := redisClient.Get(ctx, cacheKey).Result()
+		cachedData, err := redisClient.Get(ctx, cacheKey)
 		if err == nil {
 			if isSingle {
 				result := reflect.New(responseType).Interface()
@@ -381,7 +387,7 @@ func FetchAndCacheDynamic(
 				result := reflect.New(sliceType).Interface()
 				response := &PaginatedResponse[any]{Data: result}
 				if json.Unmarshal([]byte(cachedData), response) == nil {
-					fmt.Println("📦 Using cached single response for", modelType.Name())
+					fmt.Println("📦 Using cached paginated response for", modelType.Name())
 					return *response, nil
 				}
 			}
@@ -431,6 +437,7 @@ func FetchAndCacheDynamic(
 		}
 
 		pagination := buildPagination(totalItems, params)
+
 		response = PaginatedResponse[any]{
 			Data:       finalData,
 			Pagination: pagination,
@@ -439,8 +446,9 @@ func FetchAndCacheDynamic(
 
 	// ================== 3. Simpan ke Cache ==================
 	if cacheKey != "" && dbErr == nil {
+		log.Println("📦 Setting cache for", modelType.Name(), "with key", cacheKey)
 		if jsonResponse, err := json.Marshal(response); err == nil {
-			if err := redisClient.SetEX(ctx, cacheKey, jsonResponse, cacheDuration).Err(); err != nil {
+			if err := redisClient.Set(ctx, cacheKey, jsonResponse, cacheDuration); err != nil {
 				fmt.Printf("Failed to set cache for key '%s': %v\n", cacheKey, err)
 			}
 		}

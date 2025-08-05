@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"time"
@@ -22,4 +23,11 @@ func GenerateShortID(length int) string {
 func GenerateRandomNumber(length int) int {
 	max := int(math.Pow10(length))
 	return seededRand.Intn(max) + 1
+}
+
+func GenerateInvoiceCode(orderID string) string {
+	now := time.Now()
+	return fmt.Sprintf("INV/%02d%02d%04d%02d%02d%03d/%s",
+		now.Day(), now.Month(), now.Year(),
+		now.Hour(), now.Minute(), now.Second(), orderID)
 }

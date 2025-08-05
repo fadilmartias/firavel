@@ -4,25 +4,24 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"reflect"
 	"time"
 
 	"github.com/fadilmartias/firavel/app/processors"
 	"github.com/fadilmartias/firavel/app/registry"
 	"github.com/fadilmartias/firavel/app/utils" // Ganti dengan path utils Anda
+	"github.com/fadilmartias/firavel/config"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
 type GenericController struct {
 	DB    *gorm.DB
-	Redis *redis.Client
+	Redis *config.RedisClient
 }
 
-func NewGenericController(db *gorm.DB, redis *redis.Client) *GenericController {
+func NewGenericController(db *gorm.DB, redis *config.RedisClient) *GenericController {
 	return &GenericController{DB: db, Redis: redis}
 }
 
@@ -43,11 +42,11 @@ func (ctrl *GenericController) Index(c *fiber.Ctx) error {
 	tx := ctrl.DB.Model(modelInfo.Instance)
 	tx = utils.BuildGormQuery(tx, urlValues, false)
 
-	isCache := os.Getenv("APP_ENV") != "local"
+	isCache := false
 
 	// Cek query (optional override juga kalau mau)
-	if c.Query("cache") == "false" {
-		isCache = false
+	if c.Query("cache") == "true" {
+		isCache = true
 	}
 
 	var cacheKey string
@@ -99,11 +98,11 @@ func (ctrl *GenericController) Show(c *fiber.Ctx) error {
 	}
 	tx = utils.BuildGormQuery(tx, urlValues, true)
 
-	isCache := os.Getenv("APP_ENV") != "local"
+	isCache := false
 
 	// Cek query (optional override juga kalau mau)
-	if c.Query("cache") == "false" {
-		isCache = false
+	if c.Query("cache") == "true" {
+		isCache = true
 	}
 
 	var cacheKey string

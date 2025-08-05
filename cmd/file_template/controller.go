@@ -4,8 +4,8 @@ const ControllerTemplate = `package controllers_v1
 
 import (
 	"github.com/fadilmartias/firavel/app/utils"
-
-	"github.com/go-redis/redis/v8"
+	"github.com/fadilmartias/firavel/config"
+	
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
@@ -13,10 +13,10 @@ import (
 type {{.Name}} struct {
 	BaseController
 	DB    *gorm.DB
-	Redis *redis.Client
+	Redis *config.RedisClient
 }
 
-func New{{.Name}}(db *gorm.DB, redis *redis.Client) *{{.Name}} {
+func New{{.Name}}(db *gorm.DB, redis *config.RedisClient) *{{.Name}} {
 	return &{{.Name}}{DB: db, Redis: redis}
 }
 

@@ -4,20 +4,42 @@ import (
 	controllers_v0 "github.com/fadilmartias/firavel/app/http/controllers/v0"
 	controllers_v1 "github.com/fadilmartias/firavel/app/http/controllers/v1"
 	"github.com/fadilmartias/firavel/app/http/middleware"
+	"github.com/fadilmartias/firavel/app/jobs"
+	"github.com/fadilmartias/firavel/app/logger"
 	"github.com/fadilmartias/firavel/app/requests"
+	"github.com/fadilmartias/firavel/app/utils"
+	"github.com/fadilmartias/firavel/config"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
-func RegisterApiRoutes(app *fiber.App, db *gorm.DB, redis *redis.Client) {
+func RegisterApiRoutes(app *fiber.App, db *gorm.DB, redis *config.RedisClient) {
 
+	app.Use(middleware.RobotTag())
+	app.Use(middleware.GetUser())
 	app.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"message": "Hello, World!",
+		return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+			Message: "Hello, World!",
 		})
 	})
+	app.Get("/send-wa/:order_id", func(c *fiber.Ctx) error {
+		orderID := c.Params("order_id")
+		task, err := jobs.NewProductOrderSendWAInvoiceTask(orderID)
+		if err != nil {
+			logger.Error("error create task:", err)
+		}
+		info, err := jobs.AsynqClient.Enqueue(task)
+		if err != nil {
+			logger.Error("error enqueue task:", err)
+		}
+		logger.Infof("Task enqueued: %+v", info)
+		return utils.SuccessResponse(c, utils.SuccessResponseFormat{
+			Message: "Berhasil mengirim pesan",
+			Data:    nil,
+		})
+	}).Name("send-wa")
+
 	apiV0 := app.Group("/v0")
 	genericController := controllers_v0.NewGenericController(db, redis)
 	apiV0.Get("/:model", genericController.Index).Name("generic.index")

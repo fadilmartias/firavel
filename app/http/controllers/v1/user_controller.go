@@ -4,9 +4,9 @@ import (
 	"github.com/fadilmartias/firavel/app/models"
 	"github.com/fadilmartias/firavel/app/requests"
 	"github.com/fadilmartias/firavel/app/utils"
+	"github.com/fadilmartias/firavel/config"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm" // TAMBAHKAN IMPORT INI
 )
@@ -14,11 +14,11 @@ import (
 type UserController struct {
 	BaseController
 	DB    *gorm.DB // Tambahkan ini untuk menyimpan koneksi DB
-	Redis *redis.Client
+	Redis *config.RedisClient
 }
 
 // Ubah fungsi NewUserController untuk menerima koneksi DB
-func NewUserController(db *gorm.DB, redis *redis.Client) *UserController {
+func NewUserController(db *gorm.DB, redis *config.RedisClient) *UserController {
 	return &UserController{DB: db, Redis: redis}
 }
 

@@ -94,7 +94,7 @@ var makeFileCmd = &cobra.Command{
 	},
 }
 
-func createFileFromTemplate(dir, filename, tmplContent string, data interface{}) {
+func createFileFromTemplate(dir, filename, tmplContent string, data any) {
 	path := filepath.Join(dir, filename)
 	if _, err := os.Stat(path); err == nil {
 		fmt.Printf("Error: File %s already exists.\n", path)

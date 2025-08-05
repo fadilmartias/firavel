@@ -4,25 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
-
-	"github.com/robfig/cron/v3"
 )
 
-func StartCronJob() {
-	c := cron.New()
-
-	// Tambahkan cron yang jalan setiap jam 12 malam
-	c.AddFunc("0 0 * * *", func() {
-		fmt.Println("[CRON] Mulai bersihkan folder tmp:", time.Now().Format("2006-01-02 15:04:05"))
-		cleanupTmpFolder()
-	})
-
-	c.Start()
-}
-
 func cleanupTmpFolder() {
-	tmpDir := "/public/uploads/tmp"
+	tmpDir := "./public/uploads/tmp"
 	exclude := map[string]bool{
 		"images": true,
 		"docs":   true,
@@ -45,8 +30,8 @@ func cleanupTmpFolder() {
 		err := os.RemoveAll(fullPath)
 		if err != nil {
 			fmt.Printf("Gagal menghapus %s: %v\n", fullPath, err)
-		} else {
-			fmt.Printf("Berhasil menghapus: %s\n", fullPath)
 		}
+		fmt.Printf("Berhasil menghapus: %s\n", fullPath)
 	}
+	fmt.Println("Berhasil membersihkan folder tmp")
 }

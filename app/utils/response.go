@@ -1,9 +1,9 @@
 package utils
 
 import (
-	"os"
 	"runtime/debug"
 
+	"github.com/fadilmartias/firavel/config"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -60,11 +60,15 @@ func ErrorResponse(c *fiber.Ctx, params ErrorResponseFormat) error {
 	if params.Details != nil {
 		response.Details = params.Details
 	}
-	if os.Getenv("APP_ENV") != "production" && params.DevMessage != "" {
+	if config.LoadAppConfig().Env != "production" && params.DevMessage != "" {
 		response.DevMessage = params.DevMessage
 	}
-	if os.Getenv("APP_ENV") != "production" {
+	if config.LoadAppConfig().Env != "production" {
 		response.Trace = string(debug.Stack())
 	}
-	return c.Status(params.Code).JSON(response)
+	errorCode := params.Code
+	if params.Code == 0 {
+		errorCode = fiber.StatusInternalServerError
+	}
+	return c.Status(errorCode).JSON(response)
 }

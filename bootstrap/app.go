@@ -1,11 +1,11 @@
 package bootstrap
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fadilmartias/firavel/app/http/middleware"
@@ -18,7 +18,6 @@ import (
 
 	"github.com/bytedance/sonic"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -37,7 +36,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewApp() *fiber.App {
+func NewApp() (*fiber.App, *gorm.DB, *config.RedisClient) {
 
 	// Init logger
 	logger.Init()
@@ -50,7 +49,7 @@ func NewApp() *fiber.App {
 
 	// Create app
 	app := fiber.New(fiber.Config{
-		AppName:     os.Getenv("APP_NAME"),
+		AppName:     config.LoadAppConfig().Name,
 		JSONEncoder: sonic.Marshal,
 		JSONDecoder: sonic.Unmarshal,
 		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
@@ -82,26 +81,38 @@ func NewApp() *fiber.App {
 
 	// DB connection
 	db := ConnectDB()
-	logger.Info("Database connection established")
 
 	// Redis connection
-	redis := ConnectRedis()
-	logger.Info("Redis connection established")
+	redis := config.NewRedisClient()
 
 	// Use middleware
 	app.Use(recover.New(recover.Config{
-		EnableStackTrace: os.Getenv("APP_ENV") != "production",
+		EnableStackTrace: config.LoadAppConfig().Env != "production",
 	}))
 	app.Use(etag.New())
-	app.Use(helmet.New())
+	app.Use(helmet.New(helmet.Config{
+		CrossOriginResourcePolicy: "cross-origin",
+	}))
 	app.Use(limiter.New(limiter.Config{
 		Next: func(c *fiber.Ctx) bool {
-			return c.IP() == "127.0.0.1"
+			ip := c.Get("X-Forwarded-For")
+			if ip == "" {
+				ip = c.IP()
+			}
+			ip = strings.Split(ip, ",")[0]
+			ip = strings.TrimSpace(ip)
+
+			return ip == "127.0.0.1" || ip == "::1"
 		},
-		Max:        20,
+		Max:        200,
 		Expiration: 30 * time.Second,
 		KeyGenerator: func(c *fiber.Ctx) string {
-			return c.Get("x-forwarded-for")
+			ip := c.Get("X-Forwarded-For")
+			if ip == "" {
+				ip = c.IP()
+			}
+			ip = strings.Split(ip, ",")[0]
+			return strings.TrimSpace(ip)
 		},
 		LimitReached: func(c *fiber.Ctx) error {
 			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
@@ -112,31 +123,31 @@ func NewApp() *fiber.App {
 		LimiterMiddleware: limiter.SlidingWindow{},
 	}))
 	app.Use(cors.New(cors.Config{
-		Next: func(c *fiber.Ctx) bool {
-			return c.Get("x-forwarded-for") == "127.0.0.1"
-		},
-		AllowOrigins: "*",
-		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+		AllowOrigins:     os.Getenv("FE_URL"),
+		AllowMethods:     "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Authorization, Accept, X-Forwarded-For, X-Signature, X-Timestamp, X-Tenant-Id, X-Dev-Key",
+		AllowCredentials: true,
+		ExposeHeaders:    "Set-Cookie",
 	}))
 	app.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed, // 1
 	}))
 	app.Use(pprof.New(pprof.Config{
 		Next: func(c *fiber.Ctx) bool {
-			return os.Getenv("APP_ENV") != "production"
+			return config.LoadAppConfig().Env != "production"
 		},
 	}))
 	app.Use(healthcheck.New())
 	app.Use(requestid.New())
 	app.Static("/", "./public") // Static file
 	app.Get("/metrics", monitor.New(monitor.Config{Title: "Firavel Metrics Page"}))
-	cronjob.StartCronJob()
+	cronjob.StartCronJob(db)
 
 	// Register routes
 	routes.RegisterApiRoutes(app, db, redis)
 	routes.RegisterWebsocketRoutes(app) // Asumsi rute websocket tidak butuh DB, jika butuh, ubah juga
 
-	return app
+	return app, db, redis
 }
 
 func ConnectDB() *gorm.DB {
@@ -157,19 +168,6 @@ func ConnectDB() *gorm.DB {
 		log.Fatalf("Could not connect to database: %v", err)
 	}
 	return db
-}
-
-func ConnectRedis() *redis.Client {
-	redisConfig := config.LoadRedisConfig()
-	client := redis.NewClient(&redis.Options{
-		Addr:     redisConfig.Addr,
-		Password: redisConfig.Password,
-		DB:       redisConfig.DB,
-	})
-	if err := client.Ping(context.Background()).Err(); err != nil {
-		log.Fatalf("Could not connect to Redis: %v", err)
-	}
-	return client
 }
 
 // MigrateDB menjalankan GORM AutoMigrate

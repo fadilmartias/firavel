@@ -12,17 +12,17 @@ import (
 )
 
 var (
-	Debug  func(args ...interface{})
-	Debugf func(template string, args ...interface{})
+	Debug  func(args ...any)
+	Debugf func(template string, args ...any)
 
-	Info  func(args ...interface{})
-	Infof func(template string, args ...interface{})
+	Info  func(args ...any)
+	Infof func(template string, args ...any)
 
-	Warn  func(args ...interface{})
-	Warnf func(template string, args ...interface{})
+	Warn  func(args ...any)
+	Warnf func(template string, args ...any)
 
-	Error  func(args ...interface{})
-	Errorf func(template string, args ...interface{})
+	Error  func(args ...any)
+	Errorf func(template string, args ...any)
 )
 
 func Init() {
@@ -64,16 +64,16 @@ func Init() {
 	jsonEncoder := zapcore.NewJSONEncoder(encoderCfg)
 
 	// Level selectors
-	highPriority := zap.LevelEnablerFunc(func(l zapcore.Level) bool {
-		return l >= zapcore.ErrorLevel
-	})
+	// highPriority := zap.LevelEnablerFunc(func(l zapcore.Level) bool {
+	// 	return l >= zapcore.ErrorLevel
+	// })
 	// lowPriority := zap.LevelEnablerFunc(func(l zapcore.Level) bool {
 	// 	return l < zapcore.ErrorLevel
 	// })
 
 	// Cores
 	consoleCore := zapcore.NewCore(consoleEncoder, consoleWriter, zapcore.DebugLevel)
-	fileCore := zapcore.NewCore(jsonEncoder, fileZapWriter, highPriority)
+	fileCore := zapcore.NewCore(jsonEncoder, fileZapWriter, zapcore.DebugLevel)
 
 	// Combine cores
 	core := zapcore.NewTee(

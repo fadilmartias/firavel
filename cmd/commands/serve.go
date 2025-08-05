@@ -13,7 +13,7 @@ var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start the web server",
 	Run: func(cmd *cobra.Command, args []string) {
-		app := bootstrap.NewApp()
+		app, _, _ := bootstrap.NewApp()
 		appConfig := config.LoadAppConfig()
 
 		log.Printf("Starting server on http://localhost%s", appConfig.Port)

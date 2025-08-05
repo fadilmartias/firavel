@@ -7,7 +7,6 @@ import (
 	"log"
 
 	"github.com/fadilmartias/firavel/app/models"
-	"github.com/fadilmartias/firavel/database/factories"
 
 	"gorm.io/gorm"
 )
@@ -22,11 +21,11 @@ func Seed{{.Name}}(db *gorm.DB, count int) {
 	}
 	items = append(items, sample)
 
-	for i := 0; i < count; i++ {
-		item := factories.New{{.Name}}()
-		// Optional: modify item before hashing/storing
-		items = append(items, item)
-	}
+	// for i := 0; i < count; i++ {
+	// 	item := factories.New{{.Name}}()
+	// 	// Optional: modify item before hashing/storing
+	// 	items = append(items, item)
+	// }
 
 	result := db.CreateInBatches(&items, 100)
 	if result.Error != nil {

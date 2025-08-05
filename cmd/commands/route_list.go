@@ -14,7 +14,7 @@ var routeListCmd = &cobra.Command{
 	Use:   "route:list",
 	Short: "List all registered routes",
 	Run: func(cmd *cobra.Command, args []string) {
-		app := bootstrap.NewApp()
+		app, _, _ := bootstrap.NewApp()
 
 		routes := app.GetRoutes(true) // Gunakan true untuk menyertakan rute internal
 		writer := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.TabIndent)

@@ -8,3 +8,13 @@ func SliceContains(slice []string, item string) bool {
 	}
 	return false
 }
+
+func GetMap(data interface{}) (map[string]interface{}, bool) {
+	m, ok := data.(map[string]interface{})
+	return m, ok
+}
+
+func GetSlice(data interface{}) ([]interface{}, bool) {
+	s, ok := data.([]interface{})
+	return s, ok
+}
