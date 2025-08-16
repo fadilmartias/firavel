@@ -64,8 +64,25 @@ func (ctrl *AuthController) Logout(c *fiber.Ctx) error {
 
 	userDB.RefreshToken = nil
 
-	c.ClearCookie("refreshToken")
-	c.ClearCookie("accessToken")
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token_" + os.Getenv("APP_ENV"),
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour * 24),
+		HTTPOnly: true,
+		Domain:   os.Getenv("FE_DOMAIN"),
+		SameSite: fiber.CookieSameSiteNoneMode,
+		Secure:   true,
+	})
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token_" + os.Getenv("APP_ENV"),
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour * 1),
+		HTTPOnly: true,
+		Domain:   os.Getenv("FE_DOMAIN"),
+		SameSite: fiber.CookieSameSiteNoneMode,
+		Secure:   true,
+	})
+
 	if err := ctrl.DB.Save(&userDB).Error; err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 			Code:    fiber.StatusInternalServerError,
@@ -198,27 +215,27 @@ func (ctrl *AuthController) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// accessCookie := fiber.Cookie{
-	// 	Name:     "accessToken",
-	// 	Value:    accessToken,
-	// 	Expires:  time.Now().Add(time.Hour * 1),
-	// 	HTTPOnly: true,
-	// 	Domain:   os.Getenv("FE_DOMAIN"),
-	// 	SameSite: fiber.CookieSameSiteNoneMode,
-	// 	Secure:   config.LoadAppConfig().Env == "production",
-	// }
-	// c.Cookie(&accessCookie)
+	accessCookie := fiber.Cookie{
+		Name:     "access_token_" + os.Getenv("APP_ENV"),
+		Value:    accessToken,
+		Expires:  time.Now().Add(time.Hour * 1),
+		HTTPOnly: true,
+		Domain:   os.Getenv("FE_DOMAIN"),
+		SameSite: fiber.CookieSameSiteNoneMode,
+		Secure:   true,
+	}
+	c.Cookie(&accessCookie)
 
-	// refreshCookie := fiber.Cookie{
-	// 	Name:     "refreshToken",
-	// 	Value:    refreshToken,
-	// 	Expires:  time.Now().Add(time.Hour * 24),
-	// 	HTTPOnly: true,
-	// 	Domain:   os.Getenv("FE_DOMAIN"),
-	// 	SameSite: fiber.CookieSameSiteNoneMode,
-	// 	Secure:   config.LoadAppConfig().Env == "production",
-	// }
-	// c.Cookie(&refreshCookie)
+	refreshCookie := fiber.Cookie{
+		Name:     "refresh_token_" + os.Getenv("APP_ENV"),
+		Value:    refreshToken,
+		Expires:  time.Now().Add(time.Hour * 24),
+		HTTPOnly: true,
+		Domain:   os.Getenv("FE_DOMAIN"),
+		SameSite: fiber.CookieSameSiteNoneMode,
+		Secure:   true,
+	}
+	c.Cookie(&refreshCookie)
 
 	user.RefreshToken = &refreshToken
 	if err := ctrl.DB.Save(&user).Error; err != nil {
@@ -517,25 +534,26 @@ func (ctrl *AuthController) RefreshAccessToken(c *fiber.Ctx) error {
 		})
 	}
 	accessCookie := fiber.Cookie{
-		Name:     "accessToken",
+		Name:     "access_token_" + os.Getenv("APP_ENV"),
 		Value:    accessToken,
 		Expires:  time.Now().Add(time.Hour * 1),
 		HTTPOnly: true,
 		Domain:   os.Getenv("FE_DOMAIN"),
 		SameSite: fiber.CookieSameSiteNoneMode,
-		Secure:   config.LoadAppConfig().Env == "production",
+		Secure:   true,
 	}
 	refreshCookie := fiber.Cookie{
-		Name:     "refreshToken",
+		Name:     "refresh_token_" + os.Getenv("APP_ENV"),
 		Value:    refreshToken,
 		Expires:  time.Now().Add(time.Hour * 24),
 		HTTPOnly: true,
 		Domain:   os.Getenv("FE_DOMAIN"),
 		SameSite: fiber.CookieSameSiteNoneMode,
-		Secure:   config.LoadAppConfig().Env == "production",
+		Secure:   true,
 	}
 	c.Cookie(&accessCookie)
 	c.Cookie(&refreshCookie)
+
 	if err != nil {
 		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
 			Code:       fiber.StatusInternalServerError,

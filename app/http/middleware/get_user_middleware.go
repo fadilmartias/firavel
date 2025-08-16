@@ -2,6 +2,8 @@
 package middleware
 
 import (
+	"os"
+
 	"github.com/fadilmartias/firavel/app/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"
@@ -9,7 +11,7 @@ import (
 
 func GetUser() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		token := c.Cookies("accessToken") // baca dari cookie
+		token := c.Cookies("access_token_" + os.Getenv("APP_ENV")) // baca dari cookie
 		if token == "" {
 			// Tidak ada token, lanjut tanpa user
 			return c.Next()
