@@ -1,6 +1,7 @@
 package controllers_v1
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,7 +12,9 @@ import (
 	"github.com/fadilmartias/firavel/app/requests"
 	"github.com/fadilmartias/firavel/app/utils"
 	"github.com/fadilmartias/firavel/config"
+	"github.com/go-resty/resty/v2"
 	"github.com/golang-jwt/jwt"
+	"github.com/tidwall/gjson"
 
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
@@ -571,4 +574,165 @@ func (ctrl *AuthController) RefreshAccessToken(c *fiber.Ctx) error {
 			"refresh_token": refreshToken,
 		},
 	})
+}
+
+func (ctrl *AuthController) GoogleRedirect(c *fiber.Ctx) error {
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	redirectURI := os.Getenv("APP_URL") + "/v1/auth/google/callback"
+	authURL := fmt.Sprintf(
+		"https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&redirect_uri=%s&response_type=code&scope=email profile",
+		clientID, redirectURI,
+	)
+	return c.Redirect(authURL)
+}
+
+func (ctrl *AuthController) GoogleCallback(c *fiber.Ctx) error {
+	code := c.Query("code")
+	if code == "" {
+		return c.Status(400).SendString("Code not found")
+	}
+
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirectURI := os.Getenv("APP_URL") + "/v1/auth/google/callback"
+
+	// Tukar code ke token
+	resp, err := resty.New().
+		R().
+		SetFormData(map[string]string{
+			"code":          code,
+			"client_id":     clientID,
+			"client_secret": clientSecret,
+			"redirect_uri":  redirectURI,
+			"grant_type":    "authorization_code",
+		}).
+		Post("https://oauth2.googleapis.com/token")
+	if err != nil {
+		return err
+	}
+
+	accessTokenGoogle := gjson.GetBytes(resp.Body(), "access_token").String()
+
+	// Ambil profile
+	userResp, err := resty.New().
+		R().
+		SetAuthToken(accessTokenGoogle).
+		Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if err != nil {
+		return err
+	}
+
+	email := gjson.GetBytes(userResp.Body(), "email").String()
+	name := gjson.GetBytes(userResp.Body(), "name").String()
+
+	user := models.User{}
+	if err := ctrl.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Buat user baru
+			emailVerifiedAt := time.Now()
+			user = models.User{
+				Name:            name,
+				Email:           email,
+				Phone:           "",
+				Role:            "user",
+				EmailVerifiedAt: &emailVerifiedAt,
+			}
+			if err := ctrl.DB.Create(&user).Error; err != nil {
+				return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+					Code:       fiber.StatusInternalServerError,
+					Message:    "Gagal membuat user",
+					Details:    err,
+					DevMessage: err.Error(),
+				})
+			}
+		} else {
+			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+				Code:       fiber.StatusInternalServerError,
+				Message:    "Gagal memeriksa user",
+				Details:    err,
+				DevMessage: err.Error(),
+			})
+		}
+	} else {
+		// Update user
+		if err := ctrl.DB.Model(&user).Updates(models.User{
+			Name: name,
+		}).Error; err != nil {
+			return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+				Code:       fiber.StatusInternalServerError,
+				Message:    "Gagal memperbarui user",
+				Details:    err,
+				DevMessage: err.Error(),
+			})
+		}
+	}
+
+	accessToken, err := utils.GenerateToken(map[string]any{
+		"id":    user.ID,
+		"name":  user.Name,
+		"phone": user.Phone,
+		"email": user.Email,
+		"role":  user.Role,
+	}, time.Hour*1)
+	if err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Gagal menghasilkan access token",
+			Details:    err,
+			DevMessage: err.Error(),
+		})
+	}
+
+	refreshToken, err := utils.GenerateToken(map[string]any{
+		"id":    user.ID,
+		"name":  user.Name,
+		"phone": user.Phone,
+		"email": user.Email,
+		"role":  user.Role,
+	}, time.Hour*24)
+	if err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Gagal menghasilkan refresh token",
+			Details:    err,
+			DevMessage: err.Error(),
+		})
+	}
+	user.RefreshToken = &refreshToken
+	if err := ctrl.DB.Save(&user).Error; err != nil {
+		return utils.ErrorResponse(c, utils.ErrorResponseFormat{
+			Code:       fiber.StatusInternalServerError,
+			Message:    "Gagal menyimpan refresh token",
+			Details:    err,
+			DevMessage: err.Error(),
+		})
+	}
+
+	accessCookie := fiber.Cookie{
+		Name:     "access_token_" + os.Getenv("APP_ENV"),
+		Value:    accessToken,
+		Expires:  time.Now().Add(time.Hour * 1),
+		HTTPOnly: true,
+		Domain:   os.Getenv("FE_DOMAIN"),
+		SameSite: fiber.CookieSameSiteNoneMode,
+		Secure:   true,
+	}
+	c.Cookie(&accessCookie)
+
+	refreshCookie := fiber.Cookie{
+		Name:     "refresh_token_" + os.Getenv("APP_ENV"),
+		Value:    refreshToken,
+		Expires:  time.Now().Add(time.Hour * 24),
+		HTTPOnly: true,
+		Domain:   os.Getenv("FE_DOMAIN"),
+		SameSite: fiber.CookieSameSiteNoneMode,
+		Secure:   true,
+	}
+	c.Cookie(&refreshCookie)
+
+	if user.Role == "admin" {
+		return c.Redirect(os.Getenv("FE_URL") + "/admin/dashboard")
+	}
+	// Redirect ke FE
+	return c.Redirect(os.Getenv("FE_URL"))
 }

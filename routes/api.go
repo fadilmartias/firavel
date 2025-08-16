@@ -55,6 +55,8 @@ func RegisterApiRoutes(app *fiber.App, db *gorm.DB, redis *config.RedisClient) {
 	authRoutes := apiV1.Group("/auth")
 	{
 		authRoutes.Post("/login", middleware.Guest(), middleware.Validator[requests.LoginInput](), authController.Login).Name("auth.login")
+		authRoutes.Get("/google/redirect", middleware.Guest(), authController.GoogleRedirect).Name("auth.google.redirect")
+		authRoutes.Get("/google/callback", middleware.Guest(), authController.GoogleCallback).Name("auth.google.callback")
 		authRoutes.Post("/register", middleware.Guest(), middleware.Validator[requests.RegisterInput](), authController.Register).Name("auth.register")
 		authRoutes.Post("/forgot-password", middleware.Guest(), middleware.Validator[requests.ForgotPasswordInput](), authController.ForgotPassword).Name("auth.forgot-password")
 		authRoutes.Post("/reset-password", middleware.Guest(), middleware.Validator[requests.ResetPasswordInput](), authController.ResetPassword).Name("auth.reset-password")
